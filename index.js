@@ -782,7 +782,7 @@ export async function onLoad(ctx) {
 
         .rc-save-indicator {
           position: absolute;
-          left: 30px;
+          right: 30px;
           background: linear-gradient(135deg, #1abc9c, rgba(26, 188, 156, 0.8));
           color: white;
           padding: 8px 16px;
@@ -960,9 +960,9 @@ export async function onLoad(ctx) {
         </div>
 
         <div class="rc-footer">
-          <div id="rc-save-indicator" class="rc-save-indicator" style="display: none;">Settings saved successfully!</div>
           <button type="button" class="rc-button rc-button-secondary" id="rc-close-btn">Close</button>
           <button type="button" class="rc-button" id="rc-save-btn">Save</button>
+          <div id="rc-save-indicator" class="rc-save-indicator" style="display: none;">Settings saved successfully!</div>
         </div>
       </div>
       <script>
