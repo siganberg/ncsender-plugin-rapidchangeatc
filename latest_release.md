@@ -1,4 +1,4 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Added visual feedback when saving configuration settings
+- Improved save indicator positioning in configuration dialog for better visibility
