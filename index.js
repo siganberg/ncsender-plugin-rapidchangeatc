@@ -51,7 +51,7 @@ const buildInitialConfig = (raw = {}) => ({
   pocketDistance: toFiniteNumber(raw.pocketDistance, 45),
 
   // Z-axis Settings
-  zEngagement: toFiniteNumber(raw.zEngagement, -100),
+  zEngagement: toFiniteNumber(raw.zEngagement, -50),
   zSafe: toFiniteNumber(raw.zSafe, 0),
   zSpinOff: toFiniteNumber(raw.zSpinOff, 23),
   zRetreat: toFiniteNumber(raw.zRetreat, 7),
