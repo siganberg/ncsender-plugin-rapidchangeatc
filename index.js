@@ -456,7 +456,7 @@ export async function onLoad(ctx) {
   const appSettings = ctx.getAppSettings() || {};
 
   // Check if plugin has been configured (has required settings)
-  const isConfigured = pluginSettings.pocket1 && pluginSettings.pockets;
+  const isConfigured = !!(pluginSettings.pocket1 && pluginSettings.pockets);
 
   // Sync tool count from plugin config to app settings
   const pocketCount = pluginSettings.pockets || 0;
@@ -1261,11 +1261,9 @@ export async function onLoad(ctx) {
                   throw new Error('Failed to update tool.count setting: ' + settingsResponse.status);
                 }
 
-                setTimeout(function() {
-                  saveButton.disabled = false;
-                  saveButton.classList.remove('rc-button-busy');
-                  window.postMessage({ type: 'close-plugin-dialog' }, '*');
-                }, 150);
+                // Re-enable save button after successful save
+                saveButton.disabled = false;
+                saveButton.classList.remove('rc-button-busy');
               } catch (error) {
                 console.error('[RapidChangeATC] Failed to save settings:', error);
                 notifyError('Failed to save settings. Please try again.');
