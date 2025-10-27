@@ -1,9 +1,8 @@
 ## What's Changed
 
-### ✨ New Features
-- Initial release of Rapid Change ATC plugin extracted from ncSender monorepo
-- Added automatic tool change support for CNC machines
-- Requires ncSender v0.3.0 or higher
+### 🐛 Bug Fixes
+- Fixed boolean conversion issues in tool settings
+- Improved tool settings dialog to remain open after saving changes
 
 ### 🔧 Improvements
-- Set up automated release workflow for easier updates
+- Enhanced tool configuration workflow by keeping dialog accessible after save
