@@ -46,8 +46,8 @@ jobs:
           # Create a temporary directory for the plugin
           mkdir -p "tmp/$PLUGIN_ID"
 
-          # Copy all files except .git, .github, dist, and release.sh
-          rsync -av --exclude='.git' --exclude='.github' --exclude='dist' --exclude='release.sh' --exclude='latest_release.md' --exclude='tmp' ./ "tmp/$PLUGIN_ID/"
+          # Copy all files except .git, .github, .scripts, dist, and latest_release.md
+          rsync -av --exclude='.git' --exclude='.github' --exclude='.scripts' --exclude='dist' --exclude='latest_release.md' --exclude='tmp' ./ "tmp/$PLUGIN_ID/"
 
           # Create zip from the temporary directory
           cd tmp
