@@ -456,7 +456,7 @@ export async function onLoad(ctx) {
   const appSettings = ctx.getAppSettings() || {};
 
   // Check if plugin has been configured (has required settings)
-  const isConfigured = pluginSettings.pocket1 && pluginSettings.pockets;
+  const isConfigured = !!(pluginSettings.pocket1 && pluginSettings.pockets);
 
   // Sync tool count from plugin config to app settings
   const pocketCount = pluginSettings.pockets || 0;
@@ -1233,7 +1233,7 @@ export async function onLoad(ctx) {
               const payload = gatherFormData();
 
               try {
-                const pluginResponse = await fetch(BASE_URL + '/api/plugins/com.ncsender.rapidchangeatc/settings', {
+                const pluginResponse = await fetch('/api/plugins/com.ncsender.rapidchangeatc/settings', {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(payload)
@@ -1244,7 +1244,7 @@ export async function onLoad(ctx) {
                 }
 
                 const toolCount = payload.pockets || 0;
-                const settingsResponse = await fetch(BASE_URL + '/api/settings', {
+                const settingsResponse = await fetch('/api/settings', {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
