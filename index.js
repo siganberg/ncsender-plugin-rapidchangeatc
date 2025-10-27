@@ -777,6 +777,31 @@ export async function onLoad(ctx) {
           padding: 16px 30px;
           border-top: 1px solid var(--color-border);
           background: var(--color-surface);
+          position: relative;
+        }
+
+        .rc-save-indicator {
+          position: absolute;
+          left: 30px;
+          background: linear-gradient(135deg, #1abc9c, rgba(26, 188, 156, 0.8));
+          color: white;
+          padding: 8px 16px;
+          border-radius: var(--radius-small);
+          font-size: 0.9rem;
+          font-weight: 500;
+          box-shadow: 0 2px 8px rgba(26, 188, 156, 0.3);
+          animation: rc-fade-in 0.3s ease;
+        }
+
+        @keyframes rc-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
 
         .rc-button-secondary {
@@ -935,6 +960,7 @@ export async function onLoad(ctx) {
         </div>
 
         <div class="rc-footer">
+          <div id="rc-save-indicator" class="rc-save-indicator" style="display: none;">Settings saved successfully!</div>
           <button type="button" class="rc-button rc-button-secondary" id="rc-close-btn">Close</button>
           <button type="button" class="rc-button" id="rc-save-btn">Save</button>
         </div>
@@ -1221,6 +1247,7 @@ export async function onLoad(ctx) {
           }
 
           const saveButton = getInput('rc-save-btn');
+          const saveIndicator = document.getElementById('rc-save-indicator');
           if (saveButton) {
             saveButton.addEventListener('click', async function() {
               if (saveButton.disabled) {
@@ -1259,6 +1286,14 @@ export async function onLoad(ctx) {
 
                 if (!settingsResponse.ok) {
                   throw new Error('Failed to update tool.count setting: ' + settingsResponse.status);
+                }
+
+                // Show save indicator
+                if (saveIndicator) {
+                  saveIndicator.style.display = 'block';
+                  setTimeout(function() {
+                    saveIndicator.style.display = 'none';
+                  }, 5000);
                 }
 
                 // Re-enable save button after successful save
