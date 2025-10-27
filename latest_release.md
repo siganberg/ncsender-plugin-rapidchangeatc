@@ -1,4 +1,4 @@
 ## What's Changed
 
-### 🔧 Improvements
-- Improved save indicator positioning in configuration dialog for better visibility
+### 🐛 Bug Fixes
+- Fixed TLS indicator continuing to glow after completing TLS procedure
