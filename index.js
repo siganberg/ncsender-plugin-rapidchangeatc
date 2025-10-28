@@ -1125,7 +1125,7 @@ export async function onLoad(ctx) {
 
             const zEngagementInput = getInput('rc-zengagement');
             if (zEngagementInput) {
-              zEngagementInput.value = formatCoordinate(initialConfig.zEngagement ?? -100);
+              zEngagementInput.value = formatCoordinate(initialConfig.zEngagement ?? -50);
             }
 
             const showMacroCommandCheck = getInput('rc-show-macro-command');
@@ -1225,7 +1225,7 @@ export async function onLoad(ctx) {
               direction: getRadioValue('direction'),
               showMacroCommand: showMacroCommandCheck ? showMacroCommandCheck.checked : false,
               spindleDelay: spindleDelayInput ? getParseInt(spindleDelayInput.value) : 0,
-              zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -100,
+              zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -50,
               pocket1: {
                 x: pocket1X ? getParseFloat(pocket1X.value) : null,
                 y: pocket1Y ? getParseFloat(pocket1Y.value) : null
