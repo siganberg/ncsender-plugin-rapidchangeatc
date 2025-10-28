@@ -1,4 +1,8 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Fixed z-engagement value not persisting properly
+### ✨ New Features
+- Added zone offset configuration options for more precise zone positioning
+- Added axis display functionality for better visualization
+
+### 🔧 Improvements
+- Enhanced user interface with multiple UI refinements
