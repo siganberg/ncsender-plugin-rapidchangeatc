@@ -56,6 +56,8 @@ const buildInitialConfig = (raw = {}) => ({
   zSpinOff: toFiniteNumber(raw.zSpinOff, 23),
   zRetreat: toFiniteNumber(raw.zRetreat, 7),
   zProbeStart: toFiniteNumber(raw.zProbeStart, -20),
+  zone1Offset: toFiniteNumber(raw.zone1Offset, 23),
+  zone2Offset: toFiniteNumber(raw.zone2Offset, 28),
 
   // Tool Change Settings
   unloadRpm: toFiniteNumber(raw.unloadRpm, 1500),
@@ -320,7 +322,7 @@ function createManualToolFallback(settings) {
 
 // Helper: Tool unload routine
 function createToolUnload(settings) {
-  const zone1 = settings.zEngagement + settings.zSpinOff;
+  const zone1 = settings.zEngagement + settings.zone1Offset;
   return `
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
     G65P6
@@ -336,8 +338,8 @@ function createToolUnload(settings) {
 
 // Helper: Tool load routine
 function createToolLoad(settings, tool) {
-  const zone1 = settings.zEngagement + settings.zSpinOff;
-  const zone2 = settings.zEngagement + 28;
+  const zone1 = settings.zEngagement + settings.zone1Offset;
+  const zone2 = settings.zEngagement + settings.zone2Offset;
   const manualFallback1 = createManualToolFallback(settings);
   const manualFallback2 = createManualToolFallback(settings);
 
@@ -556,7 +558,7 @@ export async function onLoad(ctx) {
           display: grid;
           grid-template-rows: auto 1fr auto;
           overflow: hidden;
-          width: 800px;
+          width: 850px;
         }
 
         .rc-header {
@@ -571,7 +573,7 @@ export async function onLoad(ctx) {
 
         .rc-container {
           display: grid;
-          grid-template-columns: 350px 1fr;
+          grid-template-columns: 400px 1fr;
           gap: 24px;
         }
 
@@ -585,6 +587,48 @@ export async function onLoad(ctx) {
           display: flex;
           flex-direction: column;
           gap: 16px;
+        }
+
+        .rc-axis-card {
+          background: var(--color-surface-muted);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-small);
+          padding: 12px 16px;
+        }
+
+        .rc-axis-title {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          margin-bottom: 8px;
+          text-align: center;
+        }
+
+        .rc-axis-values {
+          display: flex;
+          justify-content: space-around;
+          gap: 16px;
+        }
+
+        .rc-axis-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .rc-axis-label {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          text-transform: uppercase;
+        }
+
+        .rc-axis-value {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--color-accent);
         }
 
         .rc-form-row {
@@ -716,9 +760,29 @@ export async function onLoad(ctx) {
 
         .rc-coordinate-group {
           display: grid;
-          grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
-          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+          gap: 8px;
           align-items: center;
+        }
+
+        .rc-coordinate-group .rc-input {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .rc-coord-input-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .rc-coord-input-wrapper .rc-coord-label-inline {
+          flex-shrink: 0;
+        }
+
+        .rc-coord-input-wrapper .rc-input {
+          flex: 1;
+          min-width: 0;
         }
 
         .rc-coord-label-inline {
@@ -821,7 +885,7 @@ export async function onLoad(ctx) {
       <div class="rc-dialog-wrapper">
         <div class="rc-header">
           <p class="rc-instructions">
-            With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower it and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, click Auto Calibrate.
+            With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket’s ball bearing, then click Auto Calibrate (Coming soon).
           </p>
         </div>
 
@@ -896,35 +960,57 @@ export async function onLoad(ctx) {
           </div>
 
           <div class="rc-form-group">
-            <label class="rc-form-label">Pocket 1 Coordinates</label>
-            <div class="rc-coordinate-group">
-              <label class="rc-coord-label-inline" for="rc-pocket1-x">X</label>
-              <input type="number" class="rc-input" id="rc-pocket1-x" value="0" step="0.001">
-              <label class="rc-coord-label-inline" for="rc-pocket1-y">Y</label>
-              <input type="number" class="rc-input" id="rc-pocket1-y" value="0" step="0.001">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label class="rc-form-label" style="margin: 0;">Pocket 1 Coordinates</label>
               <button type="button" class="rc-button rc-button-grab" id="rc-pocket1-grab">Grab</button>
             </div>
-          </div>
-
-          <div class="rc-form-group">
-            <label class="rc-form-label">Tool Setter Coordinates</label>
             <div class="rc-coordinate-group">
-              <label class="rc-coord-label-inline" for="rc-toolsetter-x">X</label>
-              <input type="number" class="rc-input" id="rc-toolsetter-x" value="0" step="0.001">
-              <label class="rc-coord-label-inline" for="rc-toolsetter-y">Y</label>
-              <input type="number" class="rc-input" id="rc-toolsetter-y" value="0" step="0.001">
-              <button type="button" class="rc-button rc-button-grab" id="rc-toolsetter-grab">Grab</button>
+              <div class="rc-coord-input-wrapper">
+                <label class="rc-coord-label-inline" for="rc-pocket1-x">X</label>
+                <input type="number" class="rc-input" id="rc-pocket1-x" value="0" step="0.001">
+              </div>
+              <div class="rc-coord-input-wrapper">
+                <label class="rc-coord-label-inline" for="rc-pocket1-y">Y</label>
+                <input type="number" class="rc-input" id="rc-pocket1-y" value="0" step="0.001">
+              </div>
+              <div class="rc-coord-input-wrapper">
+                <label class="rc-coord-label-inline" for="rc-zengagement">Z</label>
+                <input type="number" class="rc-input" id="rc-zengagement" value="-100" step="0.001">
+              </div>
             </div>
           </div>
 
           <div class="rc-form-group">
-            <label class="rc-form-label">Manual Tool Coordinates</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label class="rc-form-label" style="margin: 0;">Tool Setter Coordinates</label>
+              <button type="button" class="rc-button rc-button-grab" id="rc-toolsetter-grab">Grab</button>
+            </div>
             <div class="rc-coordinate-group">
-              <label class="rc-coord-label-inline" for="rc-manualtool-x">X</label>
-              <input type="number" class="rc-input" id="rc-manualtool-x" value="0" step="0.001">
-              <label class="rc-coord-label-inline" for="rc-manualtool-y">Y</label>
-              <input type="number" class="rc-input" id="rc-manualtool-y" value="0" step="0.001">
+              <div class="rc-coord-input-wrapper">
+                <label class="rc-coord-label-inline" for="rc-toolsetter-x">X</label>
+                <input type="number" class="rc-input" id="rc-toolsetter-x" value="0" step="0.001">
+              </div>
+              <div class="rc-coord-input-wrapper">
+                <label class="rc-coord-label-inline" for="rc-toolsetter-y">Y</label>
+                <input type="number" class="rc-input" id="rc-toolsetter-y" value="0" step="0.001">
+              </div>
+            </div>
+          </div>
+
+          <div class="rc-form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label class="rc-form-label" style="margin: 0;">Manual Tool Coordinates</label>
               <button type="button" class="rc-button rc-button-grab" id="rc-manualtool-grab">Grab</button>
+            </div>
+            <div class="rc-coordinate-group">
+              <div class="rc-coord-input-wrapper">
+                <label class="rc-coord-label-inline" for="rc-manualtool-x">X</label>
+                <input type="number" class="rc-input" id="rc-manualtool-x" value="0" step="0.001">
+              </div>
+              <div class="rc-coord-input-wrapper">
+                <label class="rc-coord-label-inline" for="rc-manualtool-y">Y</label>
+                <input type="number" class="rc-input" id="rc-manualtool-y" value="0" step="0.001">
+              </div>
             </div>
           </div>
 
@@ -933,23 +1019,34 @@ export async function onLoad(ctx) {
               <label class="rc-form-label">Spindle Delay (seconds)</label>
               <input type="number" class="rc-input" id="rc-spindle-delay" value="0" min="0" max="10" step="1">
             </div>
-
-            <div class="rc-form-group">
-              <label class="rc-form-label">Z Engagement</label>
-              <div class="rc-coordinate-group" style="grid-template-columns: 1fr auto;">
-                <input type="number" class="rc-input" id="rc-zengagement" value="-100" step="0.001">
-                <button type="button" class="rc-button rc-button-grab" id="rc-zengagement-grab">Grab</button>
-              </div>
-            </div>
           </div>
 
         </div>
 
             <!-- Right Panel: Jog Controls -->
             <div class="rc-right-panel">
+              <!-- Machine Coordinates Display -->
+              <div class="rc-axis-card">
+                <div class="rc-axis-title">Machine Coordinates</div>
+                <div class="rc-axis-values">
+                  <div class="rc-axis-item">
+                    <span class="rc-axis-label">X</span>
+                    <span class="rc-axis-value" id="rc-axis-x">0.000</span>
+                  </div>
+                  <div class="rc-axis-item">
+                    <span class="rc-axis-label">Y</span>
+                    <span class="rc-axis-value" id="rc-axis-y">0.000</span>
+                  </div>
+                  <div class="rc-axis-item">
+                    <span class="rc-axis-label">Z</span>
+                    <span class="rc-axis-value" id="rc-axis-z">0.000</span>
+                  </div>
+                </div>
+              </div>
               <nc-step-control></nc-step-control>
               <nc-jog-control></nc-jog-control>
-              <button type="button" class="rc-button rc-button-auto-calibrate" id="rc-auto-calibrate-btn">Auto Calibrate</button>
+              <button type="button" class="rc-button rc-button-auto-calibrate" id="rc-auto-calibrate-btn" disabled>Auto Calibrate</button>
+              <p style="text-align: center; font-size: 0.8rem; color: var(--color-text-secondary); margin-top: 4px; margin-bottom: 8px;">Coming soon</p>
               <div class="rc-toggle-row">
                 <label class="rc-toggle-label">Show Macro Command</label>
                 <label class="toggle-switch">
@@ -1140,18 +1237,35 @@ export async function onLoad(ctx) {
           };
 
           const grabCoordinates = async (prefix) => {
-            try {
-              const coords = await fetchMachineCoordinates();
+            // Get coordinates from real-time axis display
+            const axisX = document.getElementById('rc-axis-x');
+            const axisY = document.getElementById('rc-axis-y');
+            const axisZ = document.getElementById('rc-axis-z');
 
-              if (!coords) {
-                notifyError('Unable to determine machine coordinates. Ensure the machine is connected and reporting status.');
-                return;
+            if (!axisX || !axisY || !axisZ) {
+              notifyError('Unable to read machine coordinates from display.');
+              return;
+            }
+
+            const coords = {
+              x: parseFloat(axisX.textContent),
+              y: parseFloat(axisY.textContent),
+              z: parseFloat(axisZ.textContent)
+            };
+
+            if (!Number.isFinite(coords.x) || !Number.isFinite(coords.y) || !Number.isFinite(coords.z)) {
+              notifyError('Invalid machine coordinates. Ensure the machine is connected.');
+              return;
+            }
+
+            setCoordinateInputs(prefix, coords);
+
+            // If grabbing pocket1, also populate Z engagement
+            if (prefix === POCKET_PREFIX) {
+              const zEngagementInput = getInput('rc-zengagement');
+              if (zEngagementInput) {
+                zEngagementInput.value = formatCoordinate(coords.z);
               }
-
-              setCoordinateInputs(prefix, coords);
-            } catch (error) {
-              console.error('[RapidChangeATC] Failed to grab machine coordinates:', error);
-              notifyError('Failed to read machine coordinates. Please try again.');
             }
           };
 
@@ -1310,23 +1424,37 @@ export async function onLoad(ctx) {
             });
           }
 
-          // Register Z Engagement grab button
-          const zEngagementButton = getInput('rc-zengagement-grab');
-          if (zEngagementButton) {
-            zEngagementButton.addEventListener('click', () => {
-              if (zEngagementButton.disabled) {
-                return;
-              }
+          // Update axis display from coordinates
+          const updateAxisDisplay = (coords) => {
+            if (!coords) return;
 
-              zEngagementButton.disabled = true;
-              zEngagementButton.classList.add('rc-button-busy');
+            const axisX = document.getElementById('rc-axis-x');
+            const axisY = document.getElementById('rc-axis-y');
+            const axisZ = document.getElementById('rc-axis-z');
 
-              grabZCoordinate('rc-zengagement').finally(() => {
-                zEngagementButton.disabled = false;
-                zEngagementButton.classList.remove('rc-button-busy');
-              });
-            });
-          }
+            if (axisX && coords.x !== undefined) axisX.textContent = formatCoordinate(coords.x);
+            if (axisY && coords.y !== undefined) axisY.textContent = formatCoordinate(coords.y);
+            if (axisZ && coords.z !== undefined) axisZ.textContent = formatCoordinate(coords.z);
+          };
+
+          // Subscribe to server state updates via postMessage
+          const handleServerStateUpdate = (event) => {
+            if (!event.data || event.data.type !== 'server-state-update') return;
+
+            const coords = extractCoordinatesFromPayload(event.data.state);
+            if (coords) {
+              updateAxisDisplay(coords);
+            }
+          };
+
+          window.addEventListener('message', handleServerStateUpdate);
+
+          // Initial fetch to populate axis display
+          fetchMachineCoordinates().then(coords => {
+            if (coords) updateAxisDisplay(coords);
+          }).catch(err => {
+            console.warn('[RapidChangeATC] Failed to fetch initial coordinates:', err);
+          });
 
           applyInitialSettings();
           registerButton(POCKET_PREFIX, 'rc-pocket1-grab');
