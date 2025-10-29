@@ -747,29 +747,16 @@ export async function onLoad(ctx) {
           text-align-last: right;
         }
 
-        .rc-radio-group {
-          display: flex;
-          gap: 16px;
-        }
-
         .rc-calibration-group nc-step-control {
           width: 100%;
           display: flex;
           justify-content: center;
+          transform: scale(0.95);
         }
 
         .rc-right-panel nc-step-control {
           max-width: 200px;
           margin: 0 auto;
-        }
-
-        .rc-radio-label {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          cursor: pointer;
-          font-size: 0.9rem;
-          color: var(--color-text-primary);
         }
 
         .rc-toggle-row {
@@ -991,28 +978,14 @@ export async function onLoad(ctx) {
           position: relative;
         }
 
-        .rc-save-indicator {
-          position: absolute;
-          right: 30px;
-          background: linear-gradient(135deg, #1abc9c, rgba(26, 188, 156, 0.8));
-          color: white;
-          padding: 8px 16px;
-          border-radius: var(--radius-small);
-          font-size: 0.9rem;
-          font-weight: 500;
-          box-shadow: 0 2px 8px rgba(26, 188, 156, 0.3);
-          animation: rc-fade-in 0.3s ease;
+        .rc-button-saved {
+          box-shadow: 0 0 20px var(--color-accent), 0 0 40px var(--color-accent);
+          animation: glowPulse 0.5s ease-in-out infinite;
         }
 
-        @keyframes rc-fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        @keyframes glowPulse {
+          0%, 100% { box-shadow: 0 0 20px var(--color-accent); }
+          50% { box-shadow: 0 0 30px var(--color-accent), 0 0 50px var(--color-accent); }
         }
 
         .rc-button-secondary {
@@ -1221,7 +1194,6 @@ export async function onLoad(ctx) {
         <div class="rc-footer">
           <button type="button" class="rc-button rc-button-secondary" id="rc-close-btn">Close</button>
           <button type="button" class="rc-button" id="rc-save-btn">Save</button>
-          <div id="rc-save-indicator" class="rc-save-indicator" style="display: none;">Settings saved successfully!</div>
         </div>
       </div>
       <script>
@@ -1318,18 +1290,6 @@ export async function onLoad(ctx) {
             }
           };
 
-          const setRadioValue = (name, value) => {
-            const radios = document.querySelectorAll('input[name="' + name + '"]');
-            radios.forEach(function(radio) {
-              radio.checked = radio.value === value;
-            });
-          };
-
-          const getRadioValue = (name) => {
-            const selected = document.querySelector('input[name="' + name + '"]:checked');
-            return selected ? selected.value : null;
-          };
-
           const applyInitialSettings = () => {
             const colletSelect = getInput('rc-collet-size');
             if (colletSelect && initialConfig.colletSize) {
@@ -1384,7 +1344,7 @@ export async function onLoad(ctx) {
           };
 
           const notifySuccess = (message) => {
-            console.log('[RapidChangeATC] ' + message);
+            // Success notifications handled by UI feedback
           };
 
           const grabCoordinates = async (prefix) => {
@@ -1555,7 +1515,6 @@ export async function onLoad(ctx) {
           }
 
           const saveButton = getInput('rc-save-btn');
-          const saveIndicator = document.getElementById('rc-save-indicator');
           if (saveButton) {
             saveButton.addEventListener('click', async function() {
               if (saveButton.disabled) {
@@ -1596,17 +1555,17 @@ export async function onLoad(ctx) {
                   throw new Error('Failed to update tool.count setting: ' + settingsResponse.status);
                 }
 
-                // Show save indicator
-                if (saveIndicator) {
-                  saveIndicator.style.display = 'block';
-                  setTimeout(function() {
-                    saveIndicator.style.display = 'none';
-                  }, 5000);
-                }
-
-                // Re-enable save button after successful save
-                saveButton.disabled = false;
+                // Show saved state with glow effect
+                saveButton.textContent = 'Saved';
+                saveButton.classList.add('rc-button-saved');
                 saveButton.classList.remove('rc-button-busy');
+                saveButton.disabled = false;
+
+                // Revert back to "Save" after 2 seconds
+                setTimeout(function() {
+                  saveButton.textContent = 'Save';
+                  saveButton.classList.remove('rc-button-saved');
+                }, 2000);
               } catch (error) {
                 console.error('[RapidChangeATC] Failed to save settings:', error);
                 notifyError('Failed to save settings. Please try again.');
@@ -1638,7 +1597,6 @@ export async function onLoad(ctx) {
                 }
               };
 
-              console.log('[RapidChangeATC] Sending auto-calibrate command');
               window.postMessage(message, '*');
 
               notifySuccess('Auto calibrate started - waiting for probe result...');
@@ -1655,11 +1613,9 @@ export async function onLoad(ctx) {
             if (!event.data || event.data.type !== 'cnc-data') return;
 
             const cncData = event.data.data;
-            console.log('[RapidChangeATC] Received cnc-data:', cncData);
 
             // Check for PARAM:5063 which signals probe completed
             if (typeof cncData === 'string' && cncData.includes('PARAM:5063')) {
-              console.log('[RapidChangeATC] Probe completed - grabbing machine Z for zone calculation');
 
               // Get machine Z from axis display
               const axisZ = document.getElementById('rc-axis-z');
@@ -1677,8 +1633,6 @@ export async function onLoad(ctx) {
               // Calculate zones: zone1 = Z - 3, zone2 = Z + 2
               const zone1 = machineZ - 3;
               const zone2 = machineZ + 2;
-
-              console.log('[RapidChangeATC] Machine Z:', machineZ, 'Zone1:', zone1, 'Zone2:', zone2);
 
               // Update the input fields
               const zone1Input = getInput('rc-zone1');
