@@ -752,8 +752,15 @@ export async function onLoad(ctx) {
           gap: 16px;
         }
 
-        .rc-right-panel > nc-step-control {
-          align-self: center;
+        .rc-calibration-group nc-step-control {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+        }
+
+        .rc-right-panel nc-step-control {
+          max-width: 200px;
+          margin: 0 auto;
         }
 
         .rc-radio-label {
@@ -909,14 +916,43 @@ export async function onLoad(ctx) {
           transition: filter 0.15s ease;
         }
 
+        .rc-button-group {
+          display: inline-flex;
+        }
+
+        .rc-button-group .rc-button {
+          padding: 6px 12px !important;
+          margin: 0 !important;
+        }
+
+        .rc-button-group .rc-button-group-left {
+          border-radius: var(--radius-small) 0 0 var(--radius-small) !important;
+        }
+
+        .rc-button-group .rc-button-group-right {
+          border-radius: 0 var(--radius-small) var(--radius-small) 0 !important;
+          border-left: 1px solid rgba(0, 0, 0, 0.2) !important;
+          padding: 6px 10px !important;
+        }
+
         .rc-button-grab {
           padding: 6px 16px !important;
+        }
+
+        .rc-button-group .rc-button-grab {
+          padding: 6px 12px !important;
         }
 
         .rc-button-auto-calibrate {
           width: 200px;
           padding: 10px 16px;
           margin: 0 auto;
+        }
+
+        .rc-button-group .rc-button-auto-calibrate {
+          width: auto !important;
+          padding: 6px 10px !important;
+          margin: 0 !important;
         }
 
         .rc-button:hover {
@@ -1064,7 +1100,10 @@ export async function onLoad(ctx) {
             <div class="rc-form-group">
               <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
                 <label class="rc-form-label" style="margin: 0;">Pocket 1 Coordinates</label>
-                <button type="button" class="rc-button rc-button-grab" id="rc-pocket1-grab">Grab</button>
+                <div class="rc-button-group">
+                  <button type="button" class="rc-button rc-button-grab rc-button-group-left" id="rc-pocket1-grab">Grab</button>
+                  <button type="button" class="rc-button rc-button-auto-calibrate rc-button-group-right" id="rc-auto-calibrate-btn">Auto Detect</button>
+                </div>
               </div>
               <div class="rc-coordinate-group">
                 <div class="rc-coord-input-wrapper">
@@ -1160,8 +1199,6 @@ export async function onLoad(ctx) {
                 <nc-step-control></nc-step-control>
                 <nc-jog-control></nc-jog-control>
               </div>
-
-              <button type="button" class="rc-button rc-button-auto-calibrate" id="rc-auto-calibrate-btn">Auto Calibrate</button>
 
               <div class="rc-calibration-group">
                 <div class="rc-form-group-horizontal">
