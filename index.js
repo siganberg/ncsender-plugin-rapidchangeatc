@@ -529,12 +529,6 @@ export async function onLoad(ctx) {
 
       const rawSettings = ctx.getSettings() || {};
       const appSettings = ctx.getAppSettings() || {};
-
-      if (!rawSettings.pocket1 || !rawSettings.pockets) {
-        ctx.log('Plugin not configured, cannot run auto-calibrate');
-        return { success: false, error: 'Plugin not configured' };
-      }
-
       const settings = buildInitialConfig(rawSettings);
       const resolvedPort = resolveServerPort(rawSettings, appSettings);
 
