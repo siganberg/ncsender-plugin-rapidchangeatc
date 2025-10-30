@@ -340,8 +340,8 @@ function createToolUnload(settings) {
 function createToolLoad(settings, tool) {
   const zone1 = settings.zone1;
   const zone2 = settings.zone2;
-  const manualFallback1 = createManualToolFallback(settings);
-  const manualFallback2 = createManualToolFallback(settings);
+  const manualFallback = createManualToolFallback(settings);
+
 
   return `
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
@@ -358,12 +358,14 @@ function createToolLoad(settings, tool) {
     G53 G0 Z${zone1}
     G4 P0.2
     o300 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
-    ${manualFallback1}
+    (MSG, RAPIDCHANGEATC:FAILED_LOAD_TOOL)
+    ${manualFallback}
     o300 ELSE
        G53 G0 Z${zone2}
        G4 P0.2
        o301 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
-    ${manualFallback2}
+        (MSG, RAPIDCHANGEATC:FAILED_LOAD_TOOL)
+        ${manualFallback2}
        o301 ENDIF
     o300 ENDIF
     M61 Q${tool}
@@ -389,6 +391,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       o100 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
         ${createToolUnload(settings)}
         o101 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
+          (MSG, RAPIDCHANGEATC:FAILED_UNLOAD_TOOL)
           ${createManualToolFallback(settings)}
         o101 ENDIF
       o100 ENDIF
@@ -450,6 +453,227 @@ function buildToolChangeProgram(settings, currentTool, toolNumber) {
   return formatGCode(gcode);
 }
 
+// Show safety warning dialog
+function showSafetyWarningDialog(ctx, title, message, continueLabel) {
+  ctx.showModal(
+    /* html */ `
+      <style>
+        .rcs-safety-container {
+          background: var(--color-surface);
+          border-radius: var(--radius-medium);
+          padding: 32px;
+          max-width: 500px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .rcs-safety-header {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          margin-bottom: 24px;
+          text-align: center;
+        }
+
+        .rcs-safety-dialog {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        .rcs-safety-message {
+          font-size: 1rem;
+          line-height: 1.5;
+          color: var(--color-text-primary);
+          background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+          border: 2px solid var(--color-warning);
+          border-radius: var(--radius-small);
+          padding: 16px;
+        }
+
+        .rcs-safety-actions {
+          display: flex;
+          justify-content: center;
+          gap: 16px;
+        }
+
+        .rcs-long-press-button {
+          position: relative;
+          padding: 12px 32px;
+          border: none;
+          border-radius: var(--radius-small);
+          font-weight: 600;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          overflow: hidden;
+          min-width: 140px;
+          user-select: none;
+        }
+
+        .rcs-long-press-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .rcs-button-abort {
+          background: var(--color-error, #dc2626);
+          color: white;
+        }
+
+        .rcs-button-continue {
+          background: var(--color-success, #16a34a);
+          color: white;
+        }
+
+        .rcs-button-progress {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.5);
+          width: 0%;
+          transition: width 0.05s linear;
+        }
+
+        .rcs-button-label {
+          position: relative;
+          z-index: 1;
+        }
+      </style>
+
+      <div class="rcs-safety-container">
+        <div class="rcs-safety-header">${title}</div>
+        <div class="rcs-safety-dialog">
+          <div class="rcs-safety-message">${message}</div>
+          <div class="rcs-safety-actions">
+            <button class="rcs-long-press-button rcs-button-abort" id="rcs-abort-btn">
+              <span class="rcs-button-label">Abort</span>
+              <div class="rcs-button-progress"></div>
+            </button>
+            <button class="rcs-long-press-button rcs-button-continue" id="rcs-continue-btn">
+              <span class="rcs-button-label">${continueLabel}</span>
+              <div class="rcs-button-progress"></div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        (function() {
+          const LONG_PRESS_DURATION = 1000;
+          let abortTimer = null;
+          let continueTimer = null;
+          let abortStartTime = 0;
+          let continueStartTime = 0;
+          let abortAnimFrame = null;
+          let continueAnimFrame = null;
+
+          const abortBtn = document.getElementById('rcs-abort-btn');
+          const continueBtn = document.getElementById('rcs-continue-btn');
+          const abortProgress = abortBtn.querySelector('.rcs-button-progress');
+          const continueProgress = continueBtn.querySelector('.rcs-button-progress');
+
+          const updateProgress = (startTime, progressEl) => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min((elapsed / LONG_PRESS_DURATION) * 100, 100);
+            progressEl.style.width = progress + '%';
+            return progress < 100;
+          };
+
+          const startAbortPress = () => {
+            if (abortBtn.disabled) return;
+            abortStartTime = Date.now();
+
+            const animate = () => {
+              if (updateProgress(abortStartTime, abortProgress)) {
+                abortAnimFrame = requestAnimationFrame(animate);
+              }
+            };
+            animate();
+
+            abortTimer = setTimeout(() => {
+              abortBtn.disabled = true;
+              continueBtn.disabled = true;
+
+              window.postMessage({
+                type: 'send-command',
+                command: '\\x18',
+                displayCommand: '\\x18 (Soft Reset)'
+              }, '*');
+
+              window.postMessage({ type: 'close-modal' }, '*');
+            }, LONG_PRESS_DURATION);
+          };
+
+          const stopAbortPress = () => {
+            if (abortTimer) {
+              clearTimeout(abortTimer);
+              abortTimer = null;
+            }
+            if (abortAnimFrame) {
+              cancelAnimationFrame(abortAnimFrame);
+              abortAnimFrame = null;
+            }
+            abortProgress.style.width = '0%';
+          };
+
+          const startContinuePress = () => {
+            if (continueBtn.disabled) return;
+            continueStartTime = Date.now();
+
+            const animate = () => {
+              if (updateProgress(continueStartTime, continueProgress)) {
+                continueAnimFrame = requestAnimationFrame(animate);
+              }
+            };
+            animate();
+
+            continueTimer = setTimeout(() => {
+              abortBtn.disabled = true;
+              continueBtn.disabled = true;
+
+              window.postMessage({
+                type: 'send-command',
+                command: '~',
+                displayCommand: '~ (Cycle Start)'
+              }, '*');
+
+              window.postMessage({ type: 'close-modal' }, '*');
+            }, LONG_PRESS_DURATION);
+          };
+
+          const stopContinuePress = () => {
+            if (continueTimer) {
+              clearTimeout(continueTimer);
+              continueTimer = null;
+            }
+            if (continueAnimFrame) {
+              cancelAnimationFrame(continueAnimFrame);
+              continueAnimFrame = null;
+            }
+            continueProgress.style.width = '0%';
+          };
+
+          abortBtn.addEventListener('mousedown', startAbortPress);
+          abortBtn.addEventListener('mouseup', stopAbortPress);
+          abortBtn.addEventListener('mouseleave', stopAbortPress);
+          abortBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startAbortPress(); });
+          abortBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopAbortPress(); });
+          abortBtn.addEventListener('touchcancel', stopAbortPress);
+
+          continueBtn.addEventListener('mousedown', startContinuePress);
+          continueBtn.addEventListener('mouseup', stopContinuePress);
+          continueBtn.addEventListener('mouseleave', stopContinuePress);
+          continueBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startContinuePress(); });
+          continueBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopContinuePress(); });
+          continueBtn.addEventListener('touchcancel', stopContinuePress);
+        })();
+      </script>
+    `,
+    { closable: false }
+  );
+}
+
 // === Plugin Lifecycle ===
 
 export async function onLoad(ctx) {
@@ -494,6 +718,33 @@ export async function onLoad(ctx) {
   } catch (error) {
     ctx.log('Failed to sync tool settings on plugin load:', error);
   }
+
+  const MESSAGE_MAP = {
+    'RAPIDCHANGEATC:FAILED_UNLOAD_TOOL': {
+      title: 'Unload Failed',
+      message: 'Failed to unload the bit. Please manually unload the bit. Once done <strong>press and hold</strong> <em>"Continue"</em> or <em>"Abort"</em> to cancel the operation.',
+      continueLabel: 'Continue'
+    },
+    'RAPIDCHANGEATC:FAILED_LOAD_TOOL': {
+      title: 'Load Failed',
+      message: 'Failed to load the bit. Please manually load the bit. Once done <strong>press and hold</strong> <em>"Continue"</em> or <em>"Abort"</em> to cancel the operation.',
+      continueLabel: 'Continue'
+    }
+  };
+
+  ctx.registerEventHandler('ws:cnc-data', async (data) => {
+    if (typeof data === 'string') {
+      const upperData = data.toUpperCase();
+      if (upperData.includes('[MSG') && upperData.includes('RAPIDCHANGEATC:')) {
+        for (const [code, config] of Object.entries(MESSAGE_MAP)) {
+          if (upperData.includes(code)) {
+            showSafetyWarningDialog(ctx, config.title, config.message, config.continueLabel);
+            break;
+          }
+        }
+      }
+    }
+  });
 
   // NEW API: onBeforeCommand receives command array
   ctx.registerEventHandler('onBeforeCommand', async (commands, context) => {
