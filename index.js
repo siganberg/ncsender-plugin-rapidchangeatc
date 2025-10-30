@@ -365,7 +365,7 @@ function createToolLoad(settings, tool) {
        G4 P0.2
        o301 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
         (MSG, RAPIDCHANGEATC:FAILED_LOAD_TOOL)
-        ${manualFallback2}
+        ${manualFallback}
        o301 ENDIF
     o300 ENDIF
     M61 Q${tool}
@@ -722,12 +722,12 @@ export async function onLoad(ctx) {
   const MESSAGE_MAP = {
     'RAPIDCHANGEATC:FAILED_UNLOAD_TOOL': {
       title: 'Unload Failed',
-      message: 'Failed to unload the bit. Please manually unload the bit. Once done <strong>press and hold</strong> <em>"Continue"</em> or <em>"Abort"</em> to cancel the operation.',
+      message: 'Failed to unload the bit. Please manually remove the bit, then <strong>PRESS</strong> and <strong>HOLD</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel the operation.',
       continueLabel: 'Continue'
     },
     'RAPIDCHANGEATC:FAILED_LOAD_TOOL': {
       title: 'Load Failed',
-      message: 'Failed to load the bit. Please manually load the bit. Once done <strong>press and hold</strong> <em>"Continue"</em> or <em>"Abort"</em> to cancel the operation.',
+      message: 'Failed to load the bit. Please manually install the bit, then <strong>PRESS</strong> and <strong>HOLD</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel the operation.',
       continueLabel: 'Continue'
     }
   };

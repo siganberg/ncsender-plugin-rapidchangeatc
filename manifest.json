@@ -2,7 +2,7 @@
   "id": "com.ncsender.rapidchangeatc",
   "name": "Rapid Change ATC",
   "version": "0.1.9",
-  "minAppVersion": "0.3.15",
+  "minAppVersion": "0.3.16",
   "entry": "index.js",
   "author": "ncSender",
   "description": "Rapid tool change workflow helper for automatic tool changers.",
