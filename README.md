@@ -1,91 +1,51 @@
-# Rapid Change ATC
-
 > **IMPORTANT DISCLAIMER:** This plugin is part of my personal ncSender project. If you choose to use it, you do so entirely at your own risk. I am not responsible for any damage, malfunction, or personal injury that may result from the use or misuse of this plugin. Use it with caution and at your own discretion.
 
-Automated tool changer workflow helper for multi-pocket RapidChange ATC systems.
 
-## Installation
+# 🧰 RapidChangeATC Plugin for ncSender
 
-Install this plugin in ncSender through the Plugins interface.
+The **RapidChangeATC** plugin brings automatic tool-change support and tool management directly into **ncSender**.
+It dynamically generates tool-change macros on-the-fly and enhances the G-Code Visualizer with a **Tools List**, allowing you to easily manage and swap tools during a job.
 
-## Features
+---
 
-### Multi-Pocket Tool Management
-- Support for 1-8 tool pockets
-- Automatic tool loading and unloading with spindle engagement
-- Orientation-based pocket positioning (X or Y axis)
-- Direction control (Positive or Negative)
-- Configurable pocket spacing
-- $POCKET1 macro command for manual pocket positioning
+## ✨ Features
 
-### Collet Size Support
-- ER11, ER16, ER20, ER25, ER32 collet sizes
-- Model variants: Basic, Pro, Premium
+- ⚙️ **Dynamic Tool-Change Macros**
+  Automatically generates and executes the correct tool-change sequence when the G-Code calls for a new tool (`Txx`).
 
-### Tool Change Automation
-- Automated M6 tool change sequence with dual-zone verification
-- Probe-based tool detection for load/unload confirmation
-- Automatic fallback to manual mode on failed tool changes
-- Same-tool change detection and skipping
-- Manual tool pocket support for tools outside the ATC
+- 🧠 **Smart Integration with ncSender**
+  Works seamlessly with ncSender’s macro system and machine states for smooth transitions between tool operations.
 
-### Tool Length Setter Integration
-- Automated tool length probing with $TLS command
-- Configurable probe parameters (seek distance, feedrate)
-- Automatic tool offset management (G43.1)
+- 🧾 **Tools List in G-Code Visualizer**
+  View all tools used in your G-Code directly within the visualizer and quickly switch or edit them before starting the job.
 
-### Safety Features
-- Dual-zone probe verification during loading
-- Modal dialogs for manual recovery on failed operations
-- 1-second long-press requirement to prevent accidental triggers
-- Visual progress indicators on buttons
-- Non-closable safety dialogs during critical operations
-- Clear instructions with emphasized safety warnings
+- 🪛 **Supports RapidChange ATC Systems**
+  Designed to work perfectly with physical **RapidChange** systems (like your AutoDustBoot and ATC setups), but flexible enough for manual tool changes too.
 
-### Configuration
-- First pocket location (X/Y coordinates)
-- Tool setter location (X/Y coordinates)
-- Manual tool pocket location (X/Y coordinates)
-- Number of pockets (1-8)
-- Pocket spacing distance
-- Orientation (X or Y axis)
-- Direction (Positive or Negative)
-- Advanced JSON-configurable parameters:
-  - Z-axis positions (engagement, safe, zones, probe start)
-  - RPM settings (load/unload)
-  - Engagement feedrate
-  - Tool length setter parameters
-  - Spindle delay
+- 🔍 **Automatic Tool Detection**
+  Detects `M6` or `T` commands inside G-Code files and prepares corresponding macros.
 
-### Automatic Settings Management
-- Sets tool count based on configured pockets
-- Enables manual tool change mode when configured
-- Enables TLS integration when configured
-- Resets settings on plugin disable
+---
 
-### Auto-Calibrate Feature
-- Automatic Z-axis calibration for tool engagement height
-- Uses G38.5 probe cycle to detect collet height
-- Updates Z engagement position automatically
+## ⚙️ Installation
+
+1. Open **ncSender** and go to  **Settigs  → Plugin**
+2. Paste the latest release ZIP file link.
+3. Click **Install**
+
+---
+
 
 ## Usage
 
-1. Configure the first pocket location using the "Grab" button while positioned at pocket 1
-2. Configure the tool setter location using the "Grab" button while positioned at the tool setter
-3. Configure the manual tool pocket location (optional)
-4. Set the number of pockets, orientation, and direction
-5. Set pocket spacing distance
-6. Save configuration
-7. Use M6 Tn commands in your G-code for automated tool changes
-8. Use $TLS command for tool length measurement
-9. Use $POCKET1 command for manual pocket positioning
-
-## Manual Recovery
-
-If automatic tool loading or unloading fails, the plugin will display a recovery dialog:
-- **Load Failed**: Manually install the bit, then press and hold "Continue"
-- **Unload Failed**: Manually remove the bit, then press and hold "Continue"
-- **Abort**: Press and hold to cancel the operation (sends soft reset)
+- Configure the first pocket location using the "Grab" button while positioned at pocket 1
+- Configure the tool setter location using the "Grab" button while positioned at the tool setter
+- Configure the manual tool pocket location (optional)
+- Set the number of pockets, orientation, and direction
+- Save configuration
+- Use M6 Tn commands in your G-code for automated tool changes
+- Use $TLS command for tool length measurement
+- Use $POCKET1 command for manual pocket positioning
 
 ## Development
 
