@@ -7,6 +7,7 @@
   "author": "ncSender",
   "description": "Rapid tool change workflow helper for automatic tool changers.",
   "category": "tool-changer",
+  "repository": "https://github.com/siganberg/ncsender-plugin-rapidchangeatc",
   "priority": 50,
   "icon": "logo.png"
 }
