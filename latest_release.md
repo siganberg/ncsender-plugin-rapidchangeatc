@@ -1,5 +1,4 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Updated minimum app version requirement to 0.3.19
-- Added automatic update support for easier plugin updates
+- Replaced manual calibration with automatic detection for improved ease of use
