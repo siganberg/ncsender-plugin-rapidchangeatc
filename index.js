@@ -802,7 +802,7 @@ export async function onLoad(ctx) {
 
         if (!response.ok) {
           const errorBody = await response.text();
-          throw new Error(`Failed to send auto calibrate command: ${response.status} - ${errorBody}`);
+          throw new Error(`Failed to send auto detect command: ${response.status} - ${errorBody}`);
         }
 
         ctx.log('Auto-calibrate command sent successfully');
@@ -1248,7 +1248,7 @@ export async function onLoad(ctx) {
       <div class="rc-dialog-wrapper">
         <div class="rc-header">
           <p class="rc-instructions">
-            With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket’s ball bearing, then click Auto Calibrate (Coming soon).
+            With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket’s ball bearing, then click Auto Detect.
           </p>
         </div>
 
@@ -1844,7 +1844,7 @@ export async function onLoad(ctx) {
 
               window.postMessage(message, '*');
 
-              notifySuccess('Auto calibrate started - waiting for probe result...');
+              notifySuccess('Auto detect started - waiting for probe result...');
 
               setTimeout(function() {
                 autoCalibrateButton.disabled = false;
