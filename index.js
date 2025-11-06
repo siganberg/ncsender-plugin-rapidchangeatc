@@ -42,6 +42,7 @@ const buildInitialConfig = (raw = {}) => ({
   orientation: sanitizeOrientation(raw.orientation),
   direction: sanitizeDirection(raw.direction),
   showMacroCommand: raw.showMacroCommand ?? false,
+  performTlsAfterHome: raw.performTlsAfterHome ?? false,
   spindleDelay: clampSpindleDelay(raw.spindleDelay),
 
   // Position Settings
@@ -205,6 +206,56 @@ function handleTLSCommand(commands, settings, ctx) {
   });
 
   commands.splice(tlsIndex, 1, ...expandedCommands);
+}
+
+function handleHomeCommand(commands, settings, ctx) {
+  const homeIndex = commands.findIndex(cmd =>
+    cmd.isOriginal && cmd.command.trim().toUpperCase() === '$H'
+  );
+
+  if (homeIndex === -1) {
+    return; // No $H command found
+  }
+
+  // Only handle if performTlsAfterHome is enabled
+  if (!settings.performTlsAfterHome) {
+    return;
+  }
+
+  ctx.log('$H command detected with performTlsAfterHome enabled, adding conditional TLS');
+
+  const homeCommand = commands[homeIndex];
+  const tlsRoutine = createToolLengthSetRoutine(settings).join('\n');
+
+  const gcode = `
+    $H
+    o100 IF [#<_tool_offset> EQ 0]
+      ${tlsRoutine}
+      G53 G0 Z${settings.zSafe}
+    o100 ENDIF
+  `.trim();
+
+  const homeProgram = formatGCode(gcode);
+  const showMacroCommand = settings.showMacroCommand ?? false;
+
+  const expandedCommands = homeProgram.map((line, index) => {
+    if (index === 0) {
+      return {
+        command: line,
+        displayCommand: showMacroCommand ? null : homeCommand.command.trim(),
+        isOriginal: false
+      };
+    } else {
+      return {
+        command: line,
+        displayCommand: null,
+        isOriginal: false,
+        meta: showMacroCommand ? {} : { silent: true }
+      };
+    }
+  });
+
+  commands.splice(homeIndex, 1, ...expandedCommands);
 }
 
 function handlePocket1Command(commands, settings, ctx) {
@@ -757,6 +808,9 @@ export async function onLoad(ctx) {
     }
 
     const settings = buildInitialConfig(rawSettings);
+
+    // Handle $H (home) command with conditional TLS
+    handleHomeCommand(commands, settings, ctx);
 
     // Handle $TLS command
     handleTLSCommand(commands, settings, ctx);
@@ -1431,6 +1485,14 @@ export async function onLoad(ctx) {
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
+
+                <div class="rc-form-group-horizontal">
+                  <label class="rc-form-label">Perform TLS after first HOME</label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="rc-perform-tls-after-home">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -1581,6 +1643,11 @@ export async function onLoad(ctx) {
             if (showMacroCommandCheck) {
               showMacroCommandCheck.checked = !!initialConfig.showMacroCommand;
             }
+
+            const performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
+            if (performTlsAfterHomeCheck) {
+              performTlsAfterHomeCheck.checked = !!initialConfig.performTlsAfterHome;
+            }
           };
 
           const notifyError = (message) => {
@@ -1725,6 +1792,7 @@ export async function onLoad(ctx) {
             const zone1Input = getInput('rc-zone1');
             const zone2Input = getInput('rc-zone2');
             const showMacroCommandCheck = getInput('rc-show-macro-command');
+            const performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
 
             return {
               colletSize: colletSelect ? colletSelect.value : null,
@@ -1733,6 +1801,7 @@ export async function onLoad(ctx) {
               orientation: getSliderValue('rc-orientation-toggle'),
               direction: getSliderValue('rc-direction-toggle'),
               showMacroCommand: showMacroCommandCheck ? showMacroCommandCheck.checked : false,
+              performTlsAfterHome: performTlsAfterHomeCheck ? performTlsAfterHomeCheck.checked : false,
               spindleDelay: spindleDelayInput ? getParseInt(spindleDelayInput.value) : 0,
               zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -50,
               zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
