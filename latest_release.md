@@ -1,4 +1,7 @@
 ## What's Changed
 
+### ✨ New Features
+- Added 'Perform TLS after first HOME' setting to control when TLS (Tool Length Sensor) operations occur during the homing sequence
+
 ### 🔧 Improvements
-- Replaced manual calibration with automatic detection for improved ease of use
+- Updated documentation
