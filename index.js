@@ -652,7 +652,11 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel) {
                 displayCommand: '\\x18 (Soft Reset)'
               }, '*');
 
-              window.postMessage({ type: 'close-modal' }, '*');
+              window.postMessage({
+                type: 'send-command',
+                command: '$NCSENDER_CLEAR_MSG',
+                displayCommand: '$NCSENDER_CLEAR_MSG'
+              }, '*');
             }, LONG_PRESS_DURATION);
           };
 
@@ -689,7 +693,11 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel) {
                 displayCommand: '~ (Cycle Start)'
               }, '*');
 
-              window.postMessage({ type: 'close-modal' }, '*');
+              window.postMessage({
+                type: 'send-command',
+                command: '$NCSENDER_CLEAR_MSG',
+                displayCommand: '$NCSENDER_CLEAR_MSG'
+              }, '*');
             }, LONG_PRESS_DURATION);
           };
 
