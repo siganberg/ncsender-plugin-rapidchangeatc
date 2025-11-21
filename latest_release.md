@@ -1,5 +1,3 @@
-## What's Changed
+Based on the git log, there is only one commit between v0.1.14 and HEAD, which is the release commit itself ("chore: create new release v0.1.15"). This is an internal/chore commit with no user-facing changes.
 
-### 🔧 Improvements
-- Updated minimum Obsidian version requirement for better compatibility
-- Improved modal dialog handling for enhanced stability
+Since there are no user-impacting changes between v0.1.14 and v0.1.15, there are no release notes to generate in the requested format.
