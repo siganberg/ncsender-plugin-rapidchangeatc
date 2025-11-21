@@ -166,7 +166,7 @@ function createToolLengthSetProgram(settings) {
     G53 G0 Z${settings.zSafe}
     G[#<return_units>]
     (End of Tool Length Setter)
-    (MSG, TOOL CHANGE COMPLETE)
+    (MSG,TOOL_CHANGE_COMPLETE)
   `.trim();
   return gcode.split('\n');
 }
@@ -409,13 +409,13 @@ function createToolLoad(settings, tool) {
     G53 G0 Z${zone1}
     G4 P0.2
     o300 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
-    (MSG, RAPIDCHANGEATC:FAILED_LOAD_TOOL)
+    (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
     ${manualFallback}
     o300 ELSE
        G53 G0 Z${zone2}
        G4 P0.2
        o301 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
-        (MSG, RAPIDCHANGEATC:FAILED_LOAD_TOOL)
+        (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
         ${manualFallback}
        o301 ENDIF
     o300 ENDIF
@@ -442,7 +442,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       o100 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
         ${createToolUnload(settings)}
         o101 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
-          (MSG, RAPIDCHANGEATC:FAILED_UNLOAD_TOOL)
+          (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL)
           ${createManualToolFallback(settings)}
         o101 ENDIF
       o100 ENDIF
@@ -497,7 +497,7 @@ function buildToolChangeProgram(settings, currentTool, toolNumber) {
     G53 G0 Z${settings.zSafe}
     G[#<return_units>]
     (End of RapidChangeATC Plugin Sequence)
-    (MSG, TOOL CHANGE COMPLETE: T${toolNumber})
+    (MSG,TOOL_CHANGE_COMPLETE)
   `.trim();
 
   // Format G-code with proper indentation
@@ -779,12 +779,12 @@ export async function onLoad(ctx) {
   }
 
   const MESSAGE_MAP = {
-    'RAPIDCHANGEATC:FAILED_UNLOAD_TOOL': {
+    'PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL': {
       title: 'Unload Failed',
       message: 'Failed to unload the bit. Please manually remove the bit, then <strong>PRESS</strong> and <strong>HOLD</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel the operation.',
       continueLabel: 'Continue'
     },
-    'RAPIDCHANGEATC:FAILED_LOAD_TOOL': {
+    'PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL': {
       title: 'Load Failed',
       message: 'Failed to load the bit. Please manually install the bit, then <strong>PRESS</strong> and <strong>HOLD</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel the operation.',
       continueLabel: 'Continue'
@@ -794,7 +794,7 @@ export async function onLoad(ctx) {
   ctx.registerEventHandler('ws:cnc-data', async (data) => {
     if (typeof data === 'string') {
       const upperData = data.toUpperCase();
-      if (upperData.includes('[MSG') && upperData.includes('RAPIDCHANGEATC:')) {
+      if (upperData.includes('[MSG') && upperData.includes('PLUGIN_RAPIDCHANGEATC:')) {
         for (const [code, config] of Object.entries(MESSAGE_MAP)) {
           if (upperData.includes(code)) {
             showSafetyWarningDialog(ctx, config.title, config.message, config.continueLabel);
