@@ -232,6 +232,7 @@ function handleHomeCommand(commands, settings, ctx) {
     o100 IF [#<_tool_offset> EQ 0]
       ${tlsRoutine}
       G53 G0 Z${settings.zSafe}
+      G53 G0 X0 Y0
     o100 ENDIF
   `.trim();
 
@@ -846,7 +847,11 @@ export async function onLoad(ctx) {
       const resolvedPort = resolveServerPort(rawSettings, appSettings);
 
       const AUTO_CALIBRATE_GCODE = `
-          G38.5 G91 Z50 F200
+          (If IR is not yet trigger, move up first to trigger it. This is needed if the z-engaged it too deep)
+          o100 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
+            G38.2 G91 Z50 F200
+          o100 ENDIF
+          G38.4 G91 Z50 F200
           $#=5063
       `.trim();
 
