@@ -1,5 +1,4 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Standardized tool change completion messaging for better consistency
-- Updated minimum app version requirement
+- Added automatic move up before probing when tool length sensor has not been triggered yet
