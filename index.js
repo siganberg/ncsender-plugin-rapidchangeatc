@@ -432,6 +432,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
   if (currentTool > settings.pockets) {
     return `
       G53 G0 Z${settings.zSafe}
+      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL)
       ${createManualToolFallback(settings)}
       M61 Q0
     `.trim();
@@ -468,6 +469,7 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
   } else {
     return `
       G53 G0 Z${settings.zSafe}
+      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL)
       ${createManualToolFallback(settings)}
       M61 Q${toolNumber}
       ${tlsRoutine}
@@ -788,6 +790,16 @@ export async function onLoad(ctx) {
     'PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL': {
       title: 'Load Failed',
       message: 'Failed to load the bit. Please manually install the bit, then <strong>PRESS</strong> and <strong>HOLD</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel the operation.',
+      continueLabel: 'Continue'
+    },
+    'PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL': {
+      title: 'Manual Unload',
+      message: 'Please remove the current bit, then <strong>press and hold</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
+      continueLabel: 'Continue'
+    },
+    'PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL': {
+      title: 'Manual Load',
+      message: 'Please install the new bit securely, then <strong>press and hold</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
       continueLabel: 'Continue'
     }
   };
