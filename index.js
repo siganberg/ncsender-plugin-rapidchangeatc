@@ -846,14 +846,16 @@ export async function onLoad(ctx) {
       const settings = buildInitialConfig(rawSettings);
       const resolvedPort = resolveServerPort(rawSettings, appSettings);
 
-      const AUTO_CALIBRATE_GCODE = `
-          (If IR is not yet trigger, move up first to trigger it. This is needed if the z-engaged it too deep)
-          o100 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
-            G38.2 G91 Z50 F200
-          o100 ENDIF
-          G38.4 G91 Z50 F200
-          $#=5063
-      `.trim();
+      const gcode = `
+        (If the IR sensor isn’t triggered yet, move up first until it triggers. This is needed if the Z-engagement is set too low.)
+        o100 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
+          G38.2 G91 Z50 F200
+        o100 ENDIF
+        G38.4 G91 Z50 F200
+        $#=5063
+      `;
+
+      const AUTO_CALIBRATE_GCODE = formatGCode(gcode).join('\n');
 
       try {
         const response = await fetch(`http://localhost:${resolvedPort}/api/send-command`, {
