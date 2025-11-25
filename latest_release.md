@@ -1,4 +1,4 @@
 ## What's Changed
 
-### 🔧 Improvements
-- Fixed code formatting for better stability
+### ✨ New Features
+- Added custom dialog messages for manual tool loading and unloading operations
