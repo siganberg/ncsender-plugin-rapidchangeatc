@@ -1,4 +1,4 @@
 ## What's Changed
 
 ### ✨ New Features
-- Added support for ER16 collet system
+- Added At-Speed spindle confirmation for improved tool change reliability
