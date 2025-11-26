@@ -1,4 +1,4 @@
 ## What's Changed
 
 ### ✨ New Features
-- Added custom dialog messages for manual tool loading and unloading operations
+- Added support for ER16 collet system
