@@ -1,4 +1,4 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Improved accuracy during second plunge operation by reducing TLS speed
+- Improved Z-axis retry behavior for ER16 collet operations
