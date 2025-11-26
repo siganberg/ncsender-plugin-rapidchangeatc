@@ -55,6 +55,11 @@ const getDefaultSpindleAtSpeed = (colletSize) => {
   return false; // ER20 and others
 };
 
+const getDefaultZRetreat = (colletSize) => {
+  if (colletSize === 'ER16') return 17;
+  return 7; // ER20 and others
+};
+
 const buildInitialConfig = (raw = {}) => {
   const colletSize = sanitizeColletSize(raw.colletSize ?? raw.model);
 
@@ -68,6 +73,7 @@ const buildInitialConfig = (raw = {}) => {
   const spindleAtSpeed = raw.spindleAtSpeed !== undefined && raw.spindleAtSpeed !== null
     ? !!raw.spindleAtSpeed
     : getDefaultSpindleAtSpeed(colletSize);
+  const zRetreat = getDefaultZRetreat(colletSize);
 
   return {
     // UI Settings
@@ -91,7 +97,7 @@ const buildInitialConfig = (raw = {}) => {
     zEngagement: toFiniteNumber(raw.zEngagement, -50),
     zSafe: toFiniteNumber(raw.zSafe, 0),
     zSpinOff: toFiniteNumber(raw.zSpinOff, 23),
-    zRetreat: toFiniteNumber(raw.zRetreat, 7),
+    zRetreat,
     zProbeStart: toFiniteNumber(raw.zProbeStart, -20),
     zone1: toFiniteNumber(raw.zone1, -27.0),
     zone2: toFiniteNumber(raw.zone2, -22.0),
