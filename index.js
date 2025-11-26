@@ -14,7 +14,7 @@ const clampPockets = (value) => {
   return Math.min(Math.max(parsed, 1), 8);
 };
 
-const clampSpindleDelay = (value) => {
+const clampAtcStartDelay = (value) => {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return 0;
   return Math.min(Math.max(parsed, 0), 10);
@@ -50,6 +50,11 @@ const getDefaultUnloadRpm = (colletSize) => {
   return 1500; // ER20 and others
 };
 
+const getDefaultSpindleAtSpeed = (colletSize) => {
+  if (colletSize === 'ER16') return true;
+  return false; // ER20 and others
+};
+
 const buildInitialConfig = (raw = {}) => {
   const colletSize = sanitizeColletSize(raw.colletSize ?? raw.model);
 
@@ -60,6 +65,9 @@ const buildInitialConfig = (raw = {}) => {
   const unloadRpm = raw.unloadRpm !== undefined && raw.unloadRpm !== null
     ? toFiniteNumber(raw.unloadRpm, getDefaultUnloadRpm(colletSize))
     : getDefaultUnloadRpm(colletSize);
+  const spindleAtSpeed = raw.spindleAtSpeed !== undefined && raw.spindleAtSpeed !== null
+    ? !!raw.spindleAtSpeed
+    : getDefaultSpindleAtSpeed(colletSize);
 
   return {
     // UI Settings
@@ -70,7 +78,8 @@ const buildInitialConfig = (raw = {}) => {
     direction: sanitizeDirection(raw.direction),
     showMacroCommand: raw.showMacroCommand ?? false,
     performTlsAfterHome: raw.performTlsAfterHome ?? false,
-    spindleDelay: clampSpindleDelay(raw.spindleDelay),
+    spindleAtSpeed,
+    atcStartDelay: clampAtcStartDelay(raw.atcStartDelay ?? raw.spindleDelay),
 
     // Position Settings
     pocket1: sanitizeCoords(raw.pocket1),
@@ -403,13 +412,15 @@ function createManualToolFallback(settings) {
 // Helper: Tool unload routine
 function createToolUnload(settings) {
   const zone1 = settings.zone1;
+  const g65p6Before = settings.spindleAtSpeed ? '' : 'G65P6';
+  const g65p6After = settings.spindleAtSpeed ? '' : 'G65P6';
   return `
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
-    G65P6
+    ${g65p6Before}
     M4 S${settings.unloadRpm}
     G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}
     G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
-    G65P6
+    ${g65p6After}
     M5
     G53 G0 Z${zone1}
     G4 P0.2
@@ -421,11 +432,12 @@ function createToolLoad(settings, tool) {
   const zone1 = settings.zone1;
   const zone2 = settings.zone2;
   const manualFallback = createManualToolFallback(settings);
-
+  const g65p6Before = settings.spindleAtSpeed ? '' : 'G65P6';
+  const g65p6After = settings.spindleAtSpeed ? '' : 'G65P6';
 
   return `
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
-    G65P6
+    ${g65p6Before}
     M3 S${settings.loadRpm}
     G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}
     G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
@@ -433,7 +445,7 @@ function createToolLoad(settings, tool) {
     G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
     G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}
     G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
-    G65P6
+    ${g65p6After}
     M5
     G53 G0 Z${zone1}
     G4 P0.2
@@ -512,7 +524,7 @@ function buildToolChangeProgram(settings, currentTool, toolNumber) {
   const tlsRoutine = createToolLengthSetRoutine(settings).join('\n');
 
   // Build sections
-  const spindleDelaySection = settings.spindleDelay > 0 ? `G4 P${settings.spindleDelay}` : '';
+  const atcStartDelaySection = settings.atcStartDelay > 0 ? `G4 P${settings.atcStartDelay}` : '';
   const unloadSection = buildUnloadTool(settings, currentTool, sourcePos);
   const loadSection = buildLoadTool(settings, toolNumber, targetPos, tlsRoutine);
 
@@ -522,7 +534,7 @@ function buildToolChangeProgram(settings, currentTool, toolNumber) {
     #<return_units> = [20 + #<_metric>]
     G21
     M5
-    ${spindleDelaySection}
+    ${atcStartDelaySection}
     ${unloadSection}
     ${loadSection}
     G53 G0 Z${settings.zSafe}
@@ -970,6 +982,7 @@ export async function onLoad(ctx) {
           overflow-y: auto;
           padding: 30px;
           padding-top: 0;
+          padding-bottom: 0;
         }
 
         .rc-container {
@@ -1001,6 +1014,11 @@ export async function onLoad(ctx) {
         .rc-calibration-group {
           display: flex;
           flex-direction: column;
+          gap: 12px;
+        }
+
+        .rc-left-panel .rc-calibration-group {
+          padding: 18px 20px;
           gap: 16px;
         }
 
@@ -1503,34 +1521,34 @@ export async function onLoad(ctx) {
 
             <!-- Right Panel: Jog Controls -->
             <div class="rc-right-panel">
-              <!-- Machine Coordinates Display -->
-              <div class="rc-axis-card">
-                <div class="rc-axis-title">Machine Coordinates</div>
-                <div class="rc-axis-values">
-                  <div class="rc-axis-item">
-                    <span class="rc-axis-label">X</span>
-                    <span class="rc-axis-value" id="rc-axis-x">0.000</span>
-                  </div>
-                  <div class="rc-axis-item">
-                    <span class="rc-axis-label">Y</span>
-                    <span class="rc-axis-value" id="rc-axis-y">0.000</span>
-                  </div>
-                  <div class="rc-axis-item">
-                    <span class="rc-axis-label">Z</span>
-                    <span class="rc-axis-value" id="rc-axis-z">0.000</span>
+              <div class="rc-calibration-group">
+                <!-- Machine Coordinates Display -->
+                <div class="rc-axis-card">
+                  <div class="rc-axis-title">Machine Coordinates</div>
+                  <div class="rc-axis-values">
+                    <div class="rc-axis-item">
+                      <span class="rc-axis-label">X</span>
+                      <span class="rc-axis-value" id="rc-axis-x">0.000</span>
+                    </div>
+                    <div class="rc-axis-item">
+                      <span class="rc-axis-label">Y</span>
+                      <span class="rc-axis-value" id="rc-axis-y">0.000</span>
+                    </div>
+                    <div class="rc-axis-item">
+                      <span class="rc-axis-label">Z</span>
+                      <span class="rc-axis-value" id="rc-axis-z">0.000</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="rc-calibration-group">
                 <nc-step-control></nc-step-control>
                 <nc-jog-control></nc-jog-control>
               </div>
 
               <div class="rc-calibration-group">
                 <div class="rc-form-group-horizontal">
-                  <label class="rc-form-label">Spindle Delay</label>
-                  <input type="number" class="rc-input" id="rc-spindle-delay" value="0" min="0" max="10" step="1">
+                  <label class="rc-form-label">Delay before ATC start</label>
+                  <input type="number" class="rc-input" id="rc-atc-start-delay" value="0" min="0" max="10" step="1">
                 </div>
 
                 <div class="rc-form-group-horizontal">
@@ -1555,6 +1573,14 @@ export async function onLoad(ctx) {
                   <label class="rc-form-label">Perform TLS after first HOME</label>
                   <label class="toggle-switch">
                     <input type="checkbox" id="rc-perform-tls-after-home">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="rc-form-group-horizontal">
+                  <label class="rc-form-label" title="Wait for spindle to reach its speed before unloading/loading bits">Spindle At-Speed</label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="rc-spindle-at-speed">
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -1684,9 +1710,9 @@ export async function onLoad(ctx) {
             setCoordinateInputs(TOOL_SETTER_PREFIX, initialConfig.toolSetter);
             setCoordinateInputs(MANUAL_TOOL_PREFIX, initialConfig.manualTool);
 
-            const spindleDelayInput = getInput('rc-spindle-delay');
-            if (spindleDelayInput) {
-              spindleDelayInput.value = String(initialConfig.spindleDelay ?? 0);
+            const atcStartDelayInput = getInput('rc-atc-start-delay');
+            if (atcStartDelayInput) {
+              atcStartDelayInput.value = String(initialConfig.atcStartDelay ?? 0);
             }
 
             const loadRpmInput = getInput('rc-load-rpm');
@@ -1722,6 +1748,11 @@ export async function onLoad(ctx) {
             const performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
             if (performTlsAfterHomeCheck) {
               performTlsAfterHomeCheck.checked = !!initialConfig.performTlsAfterHome;
+            }
+
+            const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
+            if (spindleAtSpeedCheck) {
+              spindleAtSpeedCheck.checked = !!initialConfig.spindleAtSpeed;
             }
           };
 
@@ -1862,7 +1893,7 @@ export async function onLoad(ctx) {
             const toolSetterY = getInput('rc-toolsetter-y');
             const manualToolX = getInput('rc-manualtool-x');
             const manualToolY = getInput('rc-manualtool-y');
-            const spindleDelayInput = getInput('rc-spindle-delay');
+            const atcStartDelayInput = getInput('rc-atc-start-delay');
             const loadRpmInput = getInput('rc-load-rpm');
             const unloadRpmInput = getInput('rc-unload-rpm');
             const zEngagementInput = getInput('rc-zengagement');
@@ -1870,6 +1901,7 @@ export async function onLoad(ctx) {
             const zone2Input = getInput('rc-zone2');
             const showMacroCommandCheck = getInput('rc-show-macro-command');
             const performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
+            const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
 
             return {
               colletSize: colletSelect ? colletSelect.value : null,
@@ -1879,7 +1911,8 @@ export async function onLoad(ctx) {
               direction: getSliderValue('rc-direction-toggle'),
               showMacroCommand: showMacroCommandCheck ? showMacroCommandCheck.checked : false,
               performTlsAfterHome: performTlsAfterHomeCheck ? performTlsAfterHomeCheck.checked : false,
-              spindleDelay: spindleDelayInput ? getParseInt(spindleDelayInput.value) : 0,
+              spindleAtSpeed: spindleAtSpeedCheck ? spindleAtSpeedCheck.checked : false,
+              atcStartDelay: atcStartDelayInput ? getParseInt(atcStartDelayInput.value) : 0,
               loadRpm: loadRpmInput ? getParseInt(loadRpmInput.value) : 1200,
               unloadRpm: unloadRpmInput ? getParseInt(unloadRpmInput.value) : 1500,
               zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -50,
@@ -2084,15 +2117,20 @@ export async function onLoad(ctx) {
               const newColletSize = colletSelect.value;
               const loadRpmInput = getInput('rc-load-rpm');
               const unloadRpmInput = getInput('rc-unload-rpm');
+              const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
 
               if (!loadRpmInput || !unloadRpmInput) return;
 
               // Always update to new collet size defaults
               const newLoadDefault = newColletSize === 'ER16' ? 1600 : 1200;
               const newUnloadDefault = newColletSize === 'ER16' ? 2000 : 1500;
+              const newSpindleAtSpeedDefault = newColletSize === 'ER16' ? true : false;
 
               loadRpmInput.value = String(newLoadDefault);
               unloadRpmInput.value = String(newUnloadDefault);
+              if (spindleAtSpeedCheck) {
+                spindleAtSpeedCheck.checked = newSpindleAtSpeedDefault;
+              }
             });
           }
         })();
