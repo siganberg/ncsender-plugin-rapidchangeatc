@@ -180,7 +180,7 @@ function createToolLengthSetRoutine(settings) {
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
     G0 G91 Z5
-    G38.2 G91 Z-5 F250
+    G38.2 G91 Z-5 F75
     G91 G0 Z5
     G90
     #<_ofs_idx> = [#5220 * 20 + 5203]
