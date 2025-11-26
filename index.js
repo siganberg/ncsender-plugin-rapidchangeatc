@@ -34,41 +34,69 @@ const sanitizeCoords = (coords = {}) => ({
   y: toFiniteNumber(coords.y)
 });
 
-const buildInitialConfig = (raw = {}) => ({
-  // UI Settings
-  colletSize: sanitizeColletSize(raw.colletSize ?? raw.model),
-  pockets: clampPockets(raw.pockets),
-  model: sanitizeModel(raw.model ?? raw.trip ?? raw.modelName ?? raw.machineModel),
-  orientation: sanitizeOrientation(raw.orientation),
-  direction: sanitizeDirection(raw.direction),
-  showMacroCommand: raw.showMacroCommand ?? false,
-  performTlsAfterHome: raw.performTlsAfterHome ?? false,
-  spindleDelay: clampSpindleDelay(raw.spindleDelay),
+const clampRpm = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.min(Math.max(parsed, 500), 2000);
+};
 
-  // Position Settings
-  pocket1: sanitizeCoords(raw.pocket1),
-  toolSetter: sanitizeCoords(raw.toolSetter),
-  manualTool: sanitizeCoords(raw.manualTool),
-  pocketDistance: toFiniteNumber(raw.pocketDistance, 45),
+const getDefaultLoadRpm = (colletSize) => {
+  if (colletSize === 'ER16') return 1600;
+  return 1200; // ER20 and others
+};
 
-  // Z-axis Settings
-  zEngagement: toFiniteNumber(raw.zEngagement, -50),
-  zSafe: toFiniteNumber(raw.zSafe, 0),
-  zSpinOff: toFiniteNumber(raw.zSpinOff, 23),
-  zRetreat: toFiniteNumber(raw.zRetreat, 7),
-  zProbeStart: toFiniteNumber(raw.zProbeStart, -20),
-  zone1: toFiniteNumber(raw.zone1, -27.0),
-  zone2: toFiniteNumber(raw.zone2, -22.0),
+const getDefaultUnloadRpm = (colletSize) => {
+  if (colletSize === 'ER16') return 2000;
+  return 1500; // ER20 and others
+};
 
-  // Tool Change Settings
-  unloadRpm: toFiniteNumber(raw.unloadRpm, 1500),
-  loadRpm: toFiniteNumber(raw.loadRpm, 1200),
-  engageFeedrate: toFiniteNumber(raw.engageFeedrate, 3500),
+const buildInitialConfig = (raw = {}) => {
+  const colletSize = sanitizeColletSize(raw.colletSize ?? raw.model);
 
-  // Tool Setter Settings
-  seekDistance: toFiniteNumber(raw.seekDistance, 50),
-  seekFeedrate: toFiniteNumber(raw.seekFeedrate, 800)
-});
+  // Use user-provided values if they exist, otherwise use collet-specific defaults
+  const loadRpm = raw.loadRpm !== undefined && raw.loadRpm !== null
+    ? toFiniteNumber(raw.loadRpm, getDefaultLoadRpm(colletSize))
+    : getDefaultLoadRpm(colletSize);
+  const unloadRpm = raw.unloadRpm !== undefined && raw.unloadRpm !== null
+    ? toFiniteNumber(raw.unloadRpm, getDefaultUnloadRpm(colletSize))
+    : getDefaultUnloadRpm(colletSize);
+
+  return {
+    // UI Settings
+    colletSize,
+    pockets: clampPockets(raw.pockets),
+    model: sanitizeModel(raw.model ?? raw.trip ?? raw.modelName ?? raw.machineModel),
+    orientation: sanitizeOrientation(raw.orientation),
+    direction: sanitizeDirection(raw.direction),
+    showMacroCommand: raw.showMacroCommand ?? false,
+    performTlsAfterHome: raw.performTlsAfterHome ?? false,
+    spindleDelay: clampSpindleDelay(raw.spindleDelay),
+
+    // Position Settings
+    pocket1: sanitizeCoords(raw.pocket1),
+    toolSetter: sanitizeCoords(raw.toolSetter),
+    manualTool: sanitizeCoords(raw.manualTool),
+    pocketDistance: toFiniteNumber(raw.pocketDistance, 45),
+
+    // Z-axis Settings
+    zEngagement: toFiniteNumber(raw.zEngagement, -50),
+    zSafe: toFiniteNumber(raw.zSafe, 0),
+    zSpinOff: toFiniteNumber(raw.zSpinOff, 23),
+    zRetreat: toFiniteNumber(raw.zRetreat, 7),
+    zProbeStart: toFiniteNumber(raw.zProbeStart, -20),
+    zone1: toFiniteNumber(raw.zone1, -27.0),
+    zone2: toFiniteNumber(raw.zone2, -22.0),
+
+    // Tool Change Settings
+    loadRpm,
+    unloadRpm,
+    engageFeedrate: toFiniteNumber(raw.engageFeedrate, 3500),
+
+    // Tool Setter Settings
+    seekDistance: toFiniteNumber(raw.seekDistance, 50),
+    seekFeedrate: toFiniteNumber(raw.seekFeedrate, 800)
+  };
+};
 
 const resolveServerPort = (pluginSettings = {}, appSettings = {}) => {
   const appPort = Number.parseInt(appSettings?.senderPort, 10);
@@ -1343,7 +1371,7 @@ export async function onLoad(ctx) {
                 <label class="rc-form-label">Collet Size</label>
                 <select class="rc-select" id="rc-collet-size">
                   <option value="ER11" disabled>ER11</option>
-                  <option value="ER16" disabled>ER16</option>
+                  <option value="ER16">ER16</option>
                   <option value="ER20" selected>ER20</option>
                   <option value="ER25" disabled>ER25</option>
                   <option value="ER32" disabled>ER32</option>
@@ -1506,6 +1534,16 @@ export async function onLoad(ctx) {
                 </div>
 
                 <div class="rc-form-group-horizontal">
+                  <label class="rc-form-label">Load RPM</label>
+                  <input type="number" class="rc-input" id="rc-load-rpm" value="1200" min="500" max="2000" step="1">
+                </div>
+
+                <div class="rc-form-group-horizontal">
+                  <label class="rc-form-label">Unload RPM</label>
+                  <input type="number" class="rc-input" id="rc-unload-rpm" value="1500" min="500" max="2000" step="1">
+                </div>
+
+                <div class="rc-form-group-horizontal">
                   <label class="rc-form-label">Show Command</label>
                   <label class="toggle-switch">
                     <input type="checkbox" id="rc-show-macro-command">
@@ -1649,6 +1687,16 @@ export async function onLoad(ctx) {
             const spindleDelayInput = getInput('rc-spindle-delay');
             if (spindleDelayInput) {
               spindleDelayInput.value = String(initialConfig.spindleDelay ?? 0);
+            }
+
+            const loadRpmInput = getInput('rc-load-rpm');
+            if (loadRpmInput) {
+              loadRpmInput.value = String(initialConfig.loadRpm ?? 1200);
+            }
+
+            const unloadRpmInput = getInput('rc-unload-rpm');
+            if (unloadRpmInput) {
+              unloadRpmInput.value = String(initialConfig.unloadRpm ?? 1500);
             }
 
             const zEngagementInput = getInput('rc-zengagement');
@@ -1815,6 +1863,8 @@ export async function onLoad(ctx) {
             const manualToolX = getInput('rc-manualtool-x');
             const manualToolY = getInput('rc-manualtool-y');
             const spindleDelayInput = getInput('rc-spindle-delay');
+            const loadRpmInput = getInput('rc-load-rpm');
+            const unloadRpmInput = getInput('rc-unload-rpm');
             const zEngagementInput = getInput('rc-zengagement');
             const zone1Input = getInput('rc-zone1');
             const zone2Input = getInput('rc-zone2');
@@ -1830,6 +1880,8 @@ export async function onLoad(ctx) {
               showMacroCommand: showMacroCommandCheck ? showMacroCommandCheck.checked : false,
               performTlsAfterHome: performTlsAfterHomeCheck ? performTlsAfterHomeCheck.checked : false,
               spindleDelay: spindleDelayInput ? getParseInt(spindleDelayInput.value) : 0,
+              loadRpm: loadRpmInput ? getParseInt(loadRpmInput.value) : 1200,
+              unloadRpm: unloadRpmInput ? getParseInt(unloadRpmInput.value) : 1500,
               zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -50,
               zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
               zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
@@ -2024,6 +2076,25 @@ export async function onLoad(ctx) {
 
           initSliderToggle('rc-orientation-toggle');
           initSliderToggle('rc-direction-toggle');
+
+          // Add event listener for collet size changes
+          const colletSelect = getInput('rc-collet-size');
+          if (colletSelect) {
+            colletSelect.addEventListener('change', function() {
+              const newColletSize = colletSelect.value;
+              const loadRpmInput = getInput('rc-load-rpm');
+              const unloadRpmInput = getInput('rc-unload-rpm');
+
+              if (!loadRpmInput || !unloadRpmInput) return;
+
+              // Always update to new collet size defaults
+              const newLoadDefault = newColletSize === 'ER16' ? 1600 : 1200;
+              const newUnloadDefault = newColletSize === 'ER16' ? 2000 : 1500;
+
+              loadRpmInput.value = String(newLoadDefault);
+              unloadRpmInput.value = String(newUnloadDefault);
+            });
+          }
         })();
       </script>
     `,
