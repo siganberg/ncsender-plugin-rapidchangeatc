@@ -1,4 +1,8 @@
 ## What's Changed
 
+### ✨ New Features
+- Added zRetreat functionality for improved ATC operations
+
 ### 🔧 Improvements
-- Improved Z-axis retry behavior for ER16 collet operations
+- Updated styling for better visual appearance
+- Changed RapidChange layout for enhanced usability
