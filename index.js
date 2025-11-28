@@ -980,15 +980,89 @@ export async function onLoad(ctx) {
           width: 850px;
         }
 
-        .rc-header {
-          padding: 10px 30px;
+        .rc-tabs {
+          display: flex;
+          border-bottom: 1px solid var(--color-border);
+          background: var(--color-surface-muted);
+          padding: var(--gap-xs) var(--gap-md) 0 var(--gap-md);
+          gap: 2px;
+          border-left: 1px solid var(--color-border);
+          border-right: 1px solid var(--color-border);
+          border-top: 1px solid var(--color-border);
+        }
+
+        .rc-tab {
+          all: unset;
+          display: flex;
+          align-items: center;
+          gap: var(--gap-xs);
+          padding: var(--gap-sm) var(--gap-md);
+          background: transparent !important;
+          border: none !important;
+          border-radius: var(--radius-small) var(--radius-small) 0 0 !important;
+          color: var(--color-text-secondary) !important;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 0.95rem;
+          font-weight: 500;
+          margin-top: var(--gap-xs);
+          position: relative;
+          box-sizing: border-box;
+        }
+
+        .rc-tab:hover {
+          background: var(--color-surface) !important;
+          color: var(--color-text-primary);
+          transform: translateY(-1px);
+          filter: none !important;
+        }
+
+        .rc-tab.active {
+          background: var(--color-surface) !important;
+          color: var(--color-text-primary) !important;
+          box-shadow: var(--shadow-elevated);
+          border-bottom: 2px solid var(--color-accent) !important;
+          filter: none !important;
+        }
+
+        .rc-tab.active::after {
+          content: '';
+          position: absolute;
+          bottom: -1px;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: var(--gradient-accent);
+          border-radius: 2px 2px 0 0;
+        }
+
+        .rc-tab:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 2px;
+        }
+
+        .rc-tab-label {
+          font-weight: 600;
+        }
+
+        .rc-tab-content {
+          display: none;
+        }
+
+        .rc-tab-content.active {
+          display: block;
         }
 
         .rc-content {
           overflow-y: auto;
           padding: 30px;
-          padding-top: 0;
-          padding-bottom: 0;
+          padding-top: 20px;
+          padding-bottom: 20px;
+          background: var(--color-surface-muted);
+          border-left: 1px solid var(--color-border);
+          border-right: 1px solid var(--color-border);
+          border-bottom: 1px solid var(--color-border);
+          min-height: 515px;
         }
 
         .rc-container {
@@ -1376,19 +1450,65 @@ export async function onLoad(ctx) {
           background: var(--color-surface);
           filter: none;
         }
+
+        .rc-tooltip {
+          position: relative;
+          display: inline-block;
+        }
+
+        .rc-tooltip .rc-tooltip-text {
+          visibility: hidden;
+          width: 450px;
+          background-color: var(--color-surface);
+          color: var(--color-text-primary);
+          text-align: left;
+          border-radius: var(--radius-medium);
+          padding: 14px 18px;
+          position: absolute;
+          z-index: 1000;
+          top: 125%;
+          left: 50%;
+          margin-left: -225px;
+          opacity: 0;
+          transition: opacity 0.3s;
+          border: 1px solid var(--color-border);
+          box-shadow: var(--shadow-elevated);
+          font-size: 0.9rem;
+          line-height: 1.6;
+        }
+
+        .rc-tooltip .rc-tooltip-text::after {
+          content: "";
+          position: absolute;
+          bottom: 100%;
+          left: 50%;
+          margin-left: -5px;
+          border-width: 5px;
+          border-style: solid;
+          border-color: transparent transparent var(--color-surface) transparent;
+        }
+
+        .rc-tooltip:hover .rc-tooltip-text {
+          visibility: visible;
+          opacity: 1;
+        }
       </style>
 
       <div class="rc-dialog-wrapper">
-        <div class="rc-header">
-          <p class="rc-instructions">
-            With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket’s ball bearing, then click Auto Detect.
-          </p>
+        <div class="rc-tabs">
+          <button class="rc-tab active" data-tab="basic">
+            <span class="rc-tab-label">Basic</span>
+          </button>
+          <button class="rc-tab" data-tab="advanced">
+            <span class="rc-tab-label">Advanced</span>
+          </button>
         </div>
 
         <div class="rc-content">
-          <div class="rc-container">
-            <!-- Left Panel: Form Controls -->
-        <div class="rc-left-panel">
+          <div class="rc-tab-content active" id="rc-tab-basic">
+            <div class="rc-container">
+              <!-- Left Panel: Form Controls -->
+          <div class="rc-left-panel">
           <div class="rc-calibration-group">
             <div class="rc-form-row">
               <div class="rc-form-group">
@@ -1453,7 +1573,10 @@ export async function onLoad(ctx) {
                 <label class="rc-form-label" style="margin: 0;">Pocket 1 Coordinates</label>
                 <div class="rc-button-group">
                   <button type="button" class="rc-button rc-button-grab rc-button-group-left" id="rc-pocket1-grab">Grab</button>
-                  <button type="button" class="rc-button rc-button-auto-calibrate rc-button-group-right" id="rc-auto-calibrate-btn">Auto Detect</button>
+                  <div class="rc-tooltip">
+                    <button type="button" class="rc-button rc-button-auto-calibrate rc-button-group-right" id="rc-auto-calibrate-btn">Auto Detect</button>
+                    <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
+                  </div>
                 </div>
               </div>
               <div class="rc-coordinate-group">
@@ -1504,29 +1627,29 @@ export async function onLoad(ctx) {
             </div>
           </div>
 
-          <div class="rc-calibration-group">
-            <div class="rc-form-group">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
-                <label class="rc-form-label" style="margin: 0;">Manual Tool Coordinates</label>
-                <button type="button" class="rc-button rc-button-grab" id="rc-manualtool-grab">Grab</button>
-              </div>
-              <div class="rc-coordinate-group">
-                <div class="rc-coord-input-wrapper">
-                  <label class="rc-coord-label-inline" for="rc-manualtool-x">X</label>
-                  <input type="number" class="rc-input" id="rc-manualtool-x" value="0" step="0.001">
-                </div>
-                <div class="rc-coord-input-wrapper">
-                  <label class="rc-coord-label-inline" for="rc-manualtool-y">Y</label>
-                  <input type="number" class="rc-input" id="rc-manualtool-y" value="0" step="0.001">
-                </div>
-              </div>
-            </div>
-          </div>
-
         </div>
 
             <!-- Right Panel: Jog Controls -->
             <div class="rc-right-panel">
+              <div class="rc-calibration-group">
+                <div class="rc-form-group">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+                    <label class="rc-form-label" style="margin: 0;">Manual Tool Coordinates</label>
+                    <button type="button" class="rc-button rc-button-grab" id="rc-manualtool-grab">Grab</button>
+                  </div>
+                  <div class="rc-coordinate-group">
+                    <div class="rc-coord-input-wrapper">
+                      <label class="rc-coord-label-inline" for="rc-manualtool-x">X</label>
+                      <input type="number" class="rc-input" id="rc-manualtool-x" value="0" step="0.001">
+                    </div>
+                    <div class="rc-coord-input-wrapper">
+                      <label class="rc-coord-label-inline" for="rc-manualtool-y">Y</label>
+                      <input type="number" class="rc-input" id="rc-manualtool-y" value="0" step="0.001">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="rc-calibration-group">
                 <!-- Machine Coordinates Display -->
                 <div class="rc-axis-card">
@@ -1551,45 +1674,55 @@ export async function onLoad(ctx) {
                 <nc-jog-control></nc-jog-control>
               </div>
 
-              <div class="rc-calibration-group">
-                <div class="rc-form-group-horizontal">
-                  <label class="rc-form-label">Delay before ATC start</label>
-                  <input type="number" class="rc-input" id="rc-atc-start-delay" value="0" min="0" max="10" step="1">
-                </div>
+            </div>
+          </div>
+          </div>
 
-                <div class="rc-form-group-horizontal">
-                  <label class="rc-form-label">Load RPM</label>
-                  <input type="number" class="rc-input" id="rc-load-rpm" value="1200" min="500" max="2000" step="1">
-                </div>
+          <div class="rc-tab-content" id="rc-tab-advanced">
+            <div class="rc-container">
+              <div class="rc-left-panel">
+                <div class="rc-calibration-group">
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Delay before ATC start</label>
+                    <input type="number" class="rc-input" id="rc-atc-start-delay" value="0" min="0" max="10" step="1">
+                  </div>
 
-                <div class="rc-form-group-horizontal">
-                  <label class="rc-form-label">Unload RPM</label>
-                  <input type="number" class="rc-input" id="rc-unload-rpm" value="1500" min="500" max="2000" step="1">
-                </div>
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Load RPM</label>
+                    <input type="number" class="rc-input" id="rc-load-rpm" value="1200" min="500" max="2000" step="1">
+                  </div>
 
-                <div class="rc-form-group-horizontal">
-                  <label class="rc-form-label">Show Command</label>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="rc-show-macro-command">
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Unload RPM</label>
+                    <input type="number" class="rc-input" id="rc-unload-rpm" value="1500" min="500" max="2000" step="1">
+                  </div>
 
-                <div class="rc-form-group-horizontal">
-                  <label class="rc-form-label">Perform TLS after first HOME</label>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="rc-perform-tls-after-home">
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Show Command</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="rc-show-macro-command">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
 
-                <div class="rc-form-group-horizontal">
-                  <label class="rc-form-label" title="Wait for spindle to reach its speed before unloading/loading bits">Spindle At-Speed</label>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="rc-spindle-at-speed">
-                    <span class="toggle-slider"></span>
-                  </label>
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Perform TLS after first HOME</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="rc-perform-tls-after-home">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label" title="Wait for spindle to reach its speed before unloading/loading bits">Spindle At-Speed</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="rc-spindle-at-speed">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
                 </div>
+              </div>
+              <div class="rc-right-panel">
               </div>
             </div>
           </div>
@@ -1607,6 +1740,24 @@ export async function onLoad(ctx) {
           const MANUAL_TOOL_PREFIX = 'manualtool';
           const FALLBACK_PORT = ${serverPort};
           const initialConfig = ${initialConfigJson};
+
+          // Tab switching logic
+          const tabs = document.querySelectorAll('.rc-tab');
+          const tabContents = document.querySelectorAll('.rc-tab-content');
+
+          tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+              const targetTab = tab.getAttribute('data-tab');
+
+              // Remove active class from all tabs and contents
+              tabs.forEach(t => t.classList.remove('active'));
+              tabContents.forEach(c => c.classList.remove('active'));
+
+              // Add active class to clicked tab and corresponding content
+              tab.classList.add('active');
+              document.getElementById('rc-tab-' + targetTab).classList.add('active');
+            });
+          });
 
           const resolveApiBaseUrl = () => {
             if (window.ncSender && typeof window.ncSender.getApiBaseUrl === 'function') {
