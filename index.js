@@ -1058,10 +1058,10 @@ export async function onLoad(ctx) {
           padding: 30px;
           padding-top: 20px;
           padding-bottom: 20px;
-          background: var(--color-surface-muted);
+          /* background: var(--color-surface-muted);  */
           border-left: 1px solid var(--color-border);
           border-right: 1px solid var(--color-border);
-          border-bottom: 1px solid var(--color-border);
+          /* border-bottom: 1px solid var(--color-border); */
           min-height: 515px;
         }
 
