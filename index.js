@@ -456,8 +456,8 @@ function createToolLoad(settings, tool) {
     G53 G0 Z${zone1}
     G4 P0.2
     o300 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
-    (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
-    ${manualFallback}
+      (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
+      ${manualFallback}
     o300 ELSE
        G53 G0 Z${zone2}
        G4 P0.2
@@ -1500,7 +1500,7 @@ export async function onLoad(ctx) {
             <span class="rc-tab-label">Basic</span>
           </button>
           <button class="rc-tab" data-tab="advanced">
-            <span class="rc-tab-label">Advanced</span>
+            <span class="rc-tab-label">Advance</span>
           </button>
         </div>
 
@@ -1682,6 +1682,19 @@ export async function onLoad(ctx) {
             <div class="rc-container">
               <div class="rc-left-panel">
                 <div class="rc-calibration-group">
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Z-Retreat (mm)</label>
+                    <input type="number" class="rc-input" id="rc-z-retreat" value="7" min="0" max="200" step="0.1">
+                  </div>
+
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Tool Sensor/IR Port</label>
+                    <select class="rc-select" id="rc-tool-sensor">
+                      <option value="Probe Port">Probe Port</option>
+                      <option value="TLS Port" selected>TLS Port</option>
+                    </select>
+                  </div>
+
                   <div class="rc-form-group-horizontal">
                     <label class="rc-form-label">Delay before ATC start</label>
                     <input type="number" class="rc-input" id="rc-atc-start-delay" value="0" min="0" max="10" step="1">
@@ -2275,6 +2288,7 @@ export async function onLoad(ctx) {
               const loadRpmInput = getInput('rc-load-rpm');
               const unloadRpmInput = getInput('rc-unload-rpm');
               const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
+              const zRetreatInput = getInput('rc-z-retreat');
 
               if (!loadRpmInput || !unloadRpmInput) return;
 
@@ -2282,11 +2296,15 @@ export async function onLoad(ctx) {
               const newLoadDefault = newColletSize === 'ER16' ? 1600 : 1200;
               const newUnloadDefault = newColletSize === 'ER16' ? 2000 : 1500;
               const newSpindleAtSpeedDefault = newColletSize === 'ER16' ? true : false;
+              const newZRetreatDefault = newColletSize === 'ER16' ? 17 : 7;
 
               loadRpmInput.value = String(newLoadDefault);
               unloadRpmInput.value = String(newUnloadDefault);
               if (spindleAtSpeedCheck) {
                 spindleAtSpeedCheck.checked = newSpindleAtSpeedDefault;
+              }
+              if (zRetreatInput) {
+                zRetreatInput.value = String(newZRetreatDefault);
               }
             });
           }
