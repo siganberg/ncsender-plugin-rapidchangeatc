@@ -1,8 +1,5 @@
 ## What's Changed
 
 ### ✨ New Features
-- Added zRetreat functionality for improved ATC operations
-
-### 🔧 Improvements
-- Updated styling for better visual appearance
-- Changed RapidChange layout for enhanced usability
+- Added support for Premium model with customizable cover control commands
+- Users can now specify custom commands for opening and closing the tool changer cover
