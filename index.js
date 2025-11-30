@@ -109,7 +109,12 @@ const buildInitialConfig = (raw = {}) => {
 
     // Tool Setter Settings
     seekDistance: toFiniteNumber(raw.seekDistance, 50),
-    seekFeedrate: toFiniteNumber(raw.seekFeedrate, 800)
+    seekFeedrate: toFiniteNumber(raw.seekFeedrate, 800),
+    toolSensor: raw.toolSensor ?? 'TLS Port',
+
+    // Cover Commands (Premium only)
+    coverCloseCmd: raw.coverCloseCmd ?? '',
+    coverOpenCmd: raw.coverOpenCmd ?? ''
   };
 };
 
@@ -534,16 +539,23 @@ function buildToolChangeProgram(settings, currentTool, toolNumber) {
   const unloadSection = buildUnloadTool(settings, currentTool, sourcePos);
   const loadSection = buildLoadTool(settings, toolNumber, targetPos, tlsRoutine);
 
+  // Cover commands (Premium model only, and only if not empty)
+  const isPremium = settings.model === 'Premium';
+  const coverOpenCmd = isPremium && settings.coverOpenCmd && settings.coverOpenCmd.trim() !== '' ? settings.coverOpenCmd.trim() : '';
+  const coverCloseCmd = isPremium && settings.coverCloseCmd && settings.coverCloseCmd.trim() !== '' ? settings.coverCloseCmd.trim() : '';
+
   // Assemble complete program
   const gcode = `
     (Start of RapidChangeATC Plugin Sequence)
     #<return_units> = [20 + #<_metric>]
     G21
     M5
+    ${coverOpenCmd}
     ${atcStartDelaySection}
     ${unloadSection}
     ${loadSection}
     G53 G0 Z${settings.zSafe}
+    ${coverCloseCmd}
     G[#<return_units>]
     (End of RapidChangeATC Plugin Sequence)
     (MSG,TOOL_CHANGE_COMPLETE)
@@ -1195,6 +1207,13 @@ export async function onLoad(ctx) {
           border-color: var(--color-accent);
         }
 
+        .rc-input:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          background: var(--color-surface-muted);
+          color: var(--color-text-secondary);
+        }
+
         .rc-select {
           text-align-last: right;
         }
@@ -1492,6 +1511,19 @@ export async function onLoad(ctx) {
           visibility: visible;
           opacity: 1;
         }
+
+        .rc-cover-tooltip {
+          visibility: hidden;
+          opacity: 0;
+          width: 300px;
+          margin-left: -150px;
+          pointer-events: none;
+        }
+
+        .rc-tooltip:hover .rc-cover-tooltip.show {
+          visibility: visible;
+          opacity: 1;
+        }
       </style>
 
       <div class="rc-dialog-wrapper">
@@ -1541,7 +1573,7 @@ export async function onLoad(ctx) {
                 <select class="rc-select" id="rc-model-select">
                   <option value="Basic" disabled>Basic</option>
                   <option value="Pro" selected>Pro</option>
-                  <option value="Premium" disabled>Premium</option>
+                  <option value="Premium">Premium</option>
                 </select>
               </div>
             </div>
@@ -1736,6 +1768,23 @@ export async function onLoad(ctx) {
                 </div>
               </div>
               <div class="rc-right-panel">
+                <div class="rc-calibration-group">
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Command for Cover Close</label>
+                    <div class="rc-tooltip">
+                      <input type="text" class="rc-input" id="rc-cover-close-cmd" value="">
+                      <span class="rc-tooltip-text rc-cover-tooltip">Select Premium model to enable cover commands</span>
+                    </div>
+                  </div>
+
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Command for Cover Open</label>
+                    <div class="rc-tooltip">
+                      <input type="text" class="rc-input" id="rc-cover-open-cmd" value="">
+                      <span class="rc-tooltip-text rc-cover-tooltip">Select Premium model to enable cover commands</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1924,6 +1973,59 @@ export async function onLoad(ctx) {
             if (spindleAtSpeedCheck) {
               spindleAtSpeedCheck.checked = !!initialConfig.spindleAtSpeed;
             }
+
+            const zRetreatInput = getInput('rc-z-retreat');
+            if (zRetreatInput) {
+              zRetreatInput.value = String(initialConfig.zRetreat ?? 7);
+            }
+
+            const toolSensorInput = getInput('rc-tool-sensor');
+            if (toolSensorInput) {
+              toolSensorInput.value = initialConfig.toolSensor ?? 'TLS Port';
+            }
+
+            const coverCloseCmdInput = getInput('rc-cover-close-cmd');
+            if (coverCloseCmdInput) {
+              coverCloseCmdInput.value = initialConfig.coverCloseCmd ?? '';
+            }
+
+            const coverOpenCmdInput = getInput('rc-cover-open-cmd');
+            if (coverOpenCmdInput) {
+              coverOpenCmdInput.value = initialConfig.coverOpenCmd ?? '';
+            }
+          };
+
+          // Function to update cover command inputs based on model selection
+          const updateCoverCommandsState = () => {
+            const modelSelect = getInput('rc-model-select');
+            const coverCloseCmdInput = getInput('rc-cover-close-cmd');
+            const coverOpenCmdInput = getInput('rc-cover-open-cmd');
+
+            if (!modelSelect || !coverCloseCmdInput || !coverOpenCmdInput) return;
+
+            const isPremium = modelSelect.value === 'Premium';
+            coverCloseCmdInput.disabled = !isPremium;
+            coverOpenCmdInput.disabled = !isPremium;
+
+            // Toggle tooltip visibility
+            const coverCloseTooltip = coverCloseCmdInput.parentElement.querySelector('.rc-cover-tooltip');
+            const coverOpenTooltip = coverOpenCmdInput.parentElement.querySelector('.rc-cover-tooltip');
+
+            if (coverCloseTooltip) {
+              if (isPremium) {
+                coverCloseTooltip.classList.remove('show');
+              } else {
+                coverCloseTooltip.classList.add('show');
+              }
+            }
+
+            if (coverOpenTooltip) {
+              if (isPremium) {
+                coverOpenTooltip.classList.remove('show');
+              } else {
+                coverOpenTooltip.classList.add('show');
+              }
+            }
           };
 
           const notifyError = (message) => {
@@ -2072,6 +2174,10 @@ export async function onLoad(ctx) {
             const showMacroCommandCheck = getInput('rc-show-macro-command');
             const performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
             const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
+            const zRetreatInput = getInput('rc-z-retreat');
+            const toolSensorInput = getInput('rc-tool-sensor');
+            const coverCloseCmdInput = getInput('rc-cover-close-cmd');
+            const coverOpenCmdInput = getInput('rc-cover-open-cmd');
 
             return {
               colletSize: colletSelect ? colletSelect.value : null,
@@ -2088,6 +2194,10 @@ export async function onLoad(ctx) {
               zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -50,
               zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
               zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
+              zRetreat: zRetreatInput ? getParseFloat(zRetreatInput.value) : 7,
+              toolSensor: toolSensorInput ? toolSensorInput.value : 'TLS Port',
+              coverCloseCmd: coverCloseCmdInput ? coverCloseCmdInput.value : '',
+              coverOpenCmd: coverOpenCmdInput ? coverOpenCmdInput.value : '',
               pocket1: {
                 x: pocket1X ? getParseFloat(pocket1X.value) : null,
                 y: pocket1Y ? getParseFloat(pocket1Y.value) : null
@@ -2273,6 +2383,14 @@ export async function onLoad(ctx) {
           window.addEventListener('message', handleServerStateUpdate);
 
           applyInitialSettings();
+          updateCoverCommandsState();
+
+          // Add event listener for model changes
+          const modelSelect = getInput('rc-model-select');
+          if (modelSelect) {
+            modelSelect.addEventListener('change', updateCoverCommandsState);
+          }
+
           registerButton(POCKET_PREFIX, 'rc-pocket1-grab');
           registerButton(TOOL_SETTER_PREFIX, 'rc-toolsetter-grab');
           registerButton(MANUAL_TOOL_PREFIX, 'rc-manualtool-grab');
