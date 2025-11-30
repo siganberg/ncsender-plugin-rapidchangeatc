@@ -1512,6 +1512,49 @@ export async function onLoad(ctx) {
           opacity: 1;
         }
 
+        .rc-help-icon {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: var(--color-accent);
+          color: white;
+          border: none;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: bold;
+          margin-left: 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .rc-help-icon:hover {
+          background: var(--color-accent-hover);
+          transform: scale(1.1);
+        }
+
+        .rc-tooltip-popup {
+          display: none;
+          position: fixed;
+          width: 450px;
+          background-color: var(--color-surface);
+          color: var(--color-text-primary);
+          text-align: left;
+          border-radius: var(--radius-medium);
+          padding: 14px 18px;
+          z-index: 10000;
+          border: 1px solid var(--color-border);
+          box-shadow: var(--shadow-elevated);
+          font-size: 0.9rem;
+          line-height: 1.6;
+        }
+
+        .rc-tooltip-popup.show {
+          display: block;
+        }
+
         .rc-cover-tooltip {
           visibility: hidden;
           opacity: 0;
@@ -1602,11 +1645,12 @@ export async function onLoad(ctx) {
           <div class="rc-calibration-group">
             <div class="rc-form-group">
               <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
-                <label class="rc-form-label" style="margin: 0;">Pocket 1 Coordinates</label>
+                <label class="rc-form-label" style="margin: 0;">Pocket 1</label>
                 <div class="rc-button-group">
                   <button type="button" class="rc-button rc-button-grab rc-button-group-left" id="rc-pocket1-grab">Grab</button>
-                  <div class="rc-tooltip">
-                    <button type="button" class="rc-button rc-button-auto-calibrate rc-button-group-right" id="rc-auto-calibrate-btn">Auto Detect</button>
+                  <button type="button" class="rc-button rc-button-auto-calibrate rc-button-group-right" id="rc-auto-calibrate-btn">Auto Detect</button>
+                  <button type="button" class="rc-help-icon" id="rc-auto-detect-help">?</button>
+                  <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
                     <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
                   </div>
                 </div>
@@ -2384,6 +2428,36 @@ export async function onLoad(ctx) {
 
           applyInitialSettings();
           updateCoverCommandsState();
+
+          // Handle help icon click for Auto Detect tooltip
+          const autoDetectHelpIcon = document.getElementById('rc-auto-detect-help');
+          const autoDetectTooltip = document.getElementById('rc-auto-detect-tooltip');
+
+          if (autoDetectHelpIcon && autoDetectTooltip) {
+            autoDetectHelpIcon.addEventListener('click', function(e) {
+              e.stopPropagation();
+              const isVisible = autoDetectTooltip.classList.contains('show');
+
+              if (!isVisible) {
+                // Position the tooltip near the help icon
+                const rect = autoDetectHelpIcon.getBoundingClientRect();
+                autoDetectTooltip.style.top = (rect.bottom + 8) + 'px';
+                autoDetectTooltip.style.left = (rect.left - 225 + 12) + 'px';
+                autoDetectTooltip.classList.add('show');
+              } else {
+                autoDetectTooltip.classList.remove('show');
+              }
+            });
+
+            // Close tooltip when clicking outside
+            document.addEventListener('click', function(e) {
+              if (autoDetectTooltip.classList.contains('show') &&
+                  !autoDetectTooltip.contains(e.target) &&
+                  e.target !== autoDetectHelpIcon) {
+                autoDetectTooltip.classList.remove('show');
+              }
+            });
+          }
 
           // Add event listener for model changes
           const modelSelect = getInput('rc-model-select');
