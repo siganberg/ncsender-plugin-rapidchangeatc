@@ -214,7 +214,6 @@ function createToolLengthSetProgram(settings) {
     G53 G0 Z${settings.zSafe}
     G[#<return_units>]
     (End of Tool Length Setter)
-    (MSG,TOOL_CHANGE_COMPLETE)
   `.trim();
   return gcode.split('\n');
 }
@@ -558,7 +557,6 @@ function buildToolChangeProgram(settings, currentTool, toolNumber) {
     ${coverCloseCmd}
     G[#<return_units>]
     (End of RapidChangeATC Plugin Sequence)
-    (MSG,TOOL_CHANGE_COMPLETE)
   `.trim();
 
   // Format G-code with proper indentation
