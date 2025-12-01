@@ -110,7 +110,7 @@ const buildInitialConfig = (raw = {}) => {
     // Tool Setter Settings
     seekDistance: toFiniteNumber(raw.seekDistance, 50),
     seekFeedrate: toFiniteNumber(raw.seekFeedrate, 800),
-    toolSensor: raw.toolSensor ?? 'TLS Port',
+    toolSensor: raw.toolSensor ?? '_toolsetter_state',
 
     // Cover Commands (Premium only)
     coverCloseCmd: raw.coverCloseCmd ?? '',
@@ -133,6 +133,31 @@ const resolveServerPort = (pluginSettings = {}, appSettings = {}) => {
 };
 
 // === Helper Functions ===
+
+// Helper: Generate sensor check condition based on toolSensor setting
+function getSensorCheckCondition(toolSensor, checkValue, oNumber) {
+  // Extract Aux port number if it's an Aux port
+  const auxMatch = toolSensor.match(/Aux P(\d+)/i);
+
+  if (auxMatch) {
+    const portNumber = auxMatch[1];
+    if (checkValue === 0) {
+      // Check if sensor is NOT triggered (EQ -1 means no input detected)
+      return `M66 P${portNumber} L3 Q0.2\n o${oNumber} IF [#5399 EQ -1]`;
+    } else {
+      // Check if sensor IS triggered (NE -1 means input detected)
+      return `M66 P${portNumber} L3 Q0.2\n o${oNumber} IF [#5399 NE -1]`;
+    }
+  } else {
+    // Use native probe/toolsetter state
+    return `o${oNumber} IF [#<${toolSensor}> EQ ${checkValue}]`;
+  }
+}
+
+// Helper: Get closing statement for sensor check
+function getSensorCheckClose(oNumber) {
+  return `o${oNumber} ENDIF`;
+}
 
 // Helper: Format G-code with proper indentation based on O-code control structures
 function formatGCode(gcode) {
@@ -445,6 +470,11 @@ function createToolLoad(settings, tool) {
   const g65p6Before = settings.spindleAtSpeed ? '' : 'G65P6';
   const g65p6After = settings.spindleAtSpeed ? '' : 'G65P6';
 
+  const sensorCheckNotTriggered = getSensorCheckCondition(settings.toolSensor, 0, 300);
+  const sensorCheckTriggered = getSensorCheckCondition(settings.toolSensor, 1, 301);
+  const sensorCheckClose300 = getSensorCheckClose(300);
+  const sensorCheckClose301 = getSensorCheckClose(301);
+
   return `
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
     ${g65p6Before}
@@ -459,17 +489,17 @@ function createToolLoad(settings, tool) {
     M5
     G53 G0 Z${zone1}
     G4 P0.2
-    o300 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
+    ${sensorCheckNotTriggered}
       (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
       ${manualFallback}
     o300 ELSE
-       G53 G0 Z${zone2}
-       G4 P0.2
-       o301 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
+      G53 G0 Z${zone2}
+      G4 P0.2
+      ${sensorCheckTriggered}
         (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
         ${manualFallback}
-       o301 ENDIF
-    o300 ENDIF
+      ${sensorCheckClose301}
+    ${sensorCheckClose300}
     M61 Q${tool}
   `.trim();
 }
@@ -487,17 +517,22 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       M61 Q0
     `.trim();
   } else {
+    const sensorCheckTriggered100 = getSensorCheckCondition(settings.toolSensor, 1, 100);
+    const sensorCheckTriggered101 = getSensorCheckCondition(settings.toolSensor, 1, 101);
+    const sensorCheckClose100 = getSensorCheckClose(100);
+    const sensorCheckClose101 = getSensorCheckClose(101);
+
     return `
       G53 G0 Z${settings.zSafe}
       G53 G0 X${sourcePos.x} Y${sourcePos.y}
       ${createToolUnload(settings)}
-      o100 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
+      ${sensorCheckTriggered100}
         ${createToolUnload(settings)}
-        o101 IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]
+        ${sensorCheckTriggered101}
           (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL)
           ${createManualToolFallback(settings)}
-        o101 ENDIF
-      o100 ENDIF
+        ${sensorCheckClose101}
+      ${sensorCheckClose100}
       M61 Q0
     `.trim();
   }
@@ -914,11 +949,14 @@ export async function onLoad(ctx) {
       const settings = buildInitialConfig(rawSettings);
       const resolvedPort = resolveServerPort(rawSettings, appSettings);
 
+      const sensorCheckNotTriggered = getSensorCheckCondition(settings.toolSensor, 0, 100);
+      const sensorCheckClose = getSensorCheckClose(100);
+
       const gcode = `
-        (If the IR sensor isn’t triggered yet, move up first until it triggers. This is needed if the Z-engagement is set too low.)
-        o100 IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]
+        (If the IR sensor isn't triggered yet, move up first until it triggers. This is needed if the Z-engagement is set too low.)
+        ${sensorCheckNotTriggered}
           G38.2 G91 Z50 F200
-        o100 ENDIF
+        ${sensorCheckClose}
         G38.4 G91 Z50 F200
         $#=5063
       `;
@@ -1764,8 +1802,15 @@ export async function onLoad(ctx) {
                   <div class="rc-form-group-horizontal">
                     <label class="rc-form-label">Tool Sensor/IR Port</label>
                     <select class="rc-select" id="rc-tool-sensor">
-                      <option value="Probe Port">Probe Port</option>
-                      <option value="TLS Port" selected>TLS Port</option>
+                      <option value="_probe_state">_probe_state</option>
+                      <option value="_probe2_state">_probe2_state</option>
+                      <option value="_toolsetter_state" selected>_toolsetter_state</option>
+                      <option value="Aux P1">Aux P1</option>
+                      <option value="Aux P2">Aux P2</option>
+                      <option value="Aux P3">Aux P3</option>
+                      <option value="Aux P4">Aux P4</option>
+                      <option value="Aux P5">Aux P5</option>
+                      <option value="Aux P6">Aux P6</option>
                     </select>
                   </div>
 
@@ -2023,7 +2068,16 @@ export async function onLoad(ctx) {
 
             const toolSensorInput = getInput('rc-tool-sensor');
             if (toolSensorInput) {
-              toolSensorInput.value = initialConfig.toolSensor ?? 'TLS Port';
+              // Migrate old values to new format
+              let toolSensorValue = initialConfig.toolSensor ?? '_toolsetter_state';
+
+              // If old value doesn't exist in new options, use default
+              const validOptions = ['_probe_state', '_probe2_state', '_toolsetter_state', 'Aux P1', 'Aux P2', 'Aux P3', 'Aux P4', 'Aux P5', 'Aux P6'];
+              if (!validOptions.includes(toolSensorValue)) {
+                toolSensorValue = '_toolsetter_state';
+              }
+
+              toolSensorInput.value = toolSensorValue;
             }
 
             const coverCloseCmdInput = getInput('rc-cover-close-cmd');
@@ -2237,7 +2291,7 @@ export async function onLoad(ctx) {
               zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
               zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
               zRetreat: zRetreatInput ? getParseFloat(zRetreatInput.value) : 7,
-              toolSensor: toolSensorInput ? toolSensorInput.value : 'TLS Port',
+              toolSensor: toolSensorInput ? toolSensorInput.value : '_toolsetter_state',
               coverCloseCmd: coverCloseCmdInput ? coverCloseCmdInput.value : '',
               coverOpenCmd: coverOpenCmdInput ? coverOpenCmdInput.value : '',
               pocket1: {
