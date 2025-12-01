@@ -1,4 +1,4 @@
 ## What's Changed
 
-### 🔧 Improvements
-- Streamlined tool change notifications (now handled by main core)
+### ✨ New Features
+- Added support for configurable IR port selection
