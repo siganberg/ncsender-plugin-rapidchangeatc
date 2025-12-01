@@ -51,8 +51,7 @@ const getDefaultUnloadRpm = (colletSize) => {
 };
 
 const getDefaultSpindleAtSpeed = (colletSize) => {
-  if (colletSize === 'ER16') return true;
-  return false; // ER20 and others
+  return true; // Always default to true
 };
 
 const getDefaultZRetreat = (colletSize) => {
@@ -109,7 +108,7 @@ const buildInitialConfig = (raw = {}) => {
 
     // Tool Setter Settings
     seekDistance: toFiniteNumber(raw.seekDistance, 50),
-    seekFeedrate: toFiniteNumber(raw.seekFeedrate, 800),
+    seekFeedrate: toFiniteNumber(raw.seekFeedrate, 500),
     toolSensor: raw.toolSensor ?? '_toolsetter_state',
 
     // Cover Commands (Premium only)
@@ -1115,8 +1114,10 @@ export async function onLoad(ctx) {
 
         .rc-container {
           display: grid;
-          grid-template-columns: 400px 1fr;
+          grid-template-columns: 1fr 1fr;
           gap: 12px;
+          max-width: 100%;
+          overflow-x: hidden;
         }
 
         .rc-left-panel {
@@ -1148,6 +1149,29 @@ export async function onLoad(ctx) {
         .rc-left-panel .rc-calibration-group {
           padding: 18px 20px;
           gap: 16px;
+        }
+
+        .rc-calibration-group.disabled {
+          position: relative;
+          pointer-events: none;
+          opacity: 0.5;
+        }
+
+        .rc-calibration-group.disabled::after {
+          content: 'Select Premium model to enable';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: var(--color-surface);
+          padding: 8px 16px;
+          border-radius: var(--radius-medium);
+          border: 2px solid var(--color-border);
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          white-space: nowrap;
+          z-index: 1;
         }
 
         .rc-axis-title {
@@ -1212,8 +1236,8 @@ export async function onLoad(ctx) {
         }
 
         .rc-form-group-horizontal .rc-form-label {
-          white-space: nowrap;
-          min-width: fit-content;
+          flex-shrink: 0;
+          max-width: 50%;
         }
 
         .rc-form-group-horizontal .rc-input {
@@ -1856,19 +1880,36 @@ export async function onLoad(ctx) {
               </div>
               <div class="rc-right-panel">
                 <div class="rc-calibration-group">
-                  <div class="rc-form-group-horizontal">
-                    <label class="rc-form-label">Command for Cover Close</label>
-                    <div class="rc-tooltip">
-                      <input type="text" class="rc-input" id="rc-cover-close-cmd" value="">
-                      <span class="rc-tooltip-text rc-cover-tooltip">Select Premium model to enable cover commands</span>
+                  <div class="rc-form-group">
+                    <label class="rc-form-label" style="text-align: center;">TLS Settings</label>
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Starting Z-Probe (mm)</label>
+                      <input type="number" class="rc-input" id="rc-z-probe-start" value="-20" step="0.1">
+                    </div>
+
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Seek Distance (mm)</label>
+                      <input type="number" class="rc-input" id="rc-seek-distance" value="50" min="1" max="200" step="0.1">
+                    </div>
+
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Seek Feedrate (mm/min)</label>
+                      <input type="number" class="rc-input" id="rc-seek-feedrate" value="500" min="1" max="5000" step="1">
                     </div>
                   </div>
+                </div>
 
-                  <div class="rc-form-group-horizontal">
-                    <label class="rc-form-label">Command for Cover Open</label>
-                    <div class="rc-tooltip">
+                <div class="rc-calibration-group" id="rc-cover-settings-card">
+                  <div class="rc-form-group">
+                    <label class="rc-form-label" style="text-align: center;">Cover Settings</label>
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Close Command</label>
+                      <input type="text" class="rc-input" id="rc-cover-close-cmd" value="">
+                    </div>
+
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Open Command</label>
                       <input type="text" class="rc-input" id="rc-cover-open-cmd" value="">
-                      <span class="rc-tooltip-text rc-cover-tooltip">Select Premium model to enable cover commands</span>
                     </div>
                   </div>
                 </div>
@@ -2066,6 +2107,21 @@ export async function onLoad(ctx) {
               zRetreatInput.value = String(initialConfig.zRetreat ?? 7);
             }
 
+            const zProbeStartInput = getInput('rc-z-probe-start');
+            if (zProbeStartInput) {
+              zProbeStartInput.value = String(initialConfig.zProbeStart ?? -20);
+            }
+
+            const seekDistanceInput = getInput('rc-seek-distance');
+            if (seekDistanceInput) {
+              seekDistanceInput.value = String(initialConfig.seekDistance ?? 50);
+            }
+
+            const seekFeedrateInput = getInput('rc-seek-feedrate');
+            if (seekFeedrateInput) {
+              seekFeedrateInput.value = String(initialConfig.seekFeedrate ?? 500);
+            }
+
             const toolSensorInput = getInput('rc-tool-sensor');
             if (toolSensorInput) {
               // Migrate old values to new format
@@ -2094,33 +2150,16 @@ export async function onLoad(ctx) {
           // Function to update cover command inputs based on model selection
           const updateCoverCommandsState = () => {
             const modelSelect = getInput('rc-model-select');
-            const coverCloseCmdInput = getInput('rc-cover-close-cmd');
-            const coverOpenCmdInput = getInput('rc-cover-open-cmd');
+            const coverSettingsCard = document.getElementById('rc-cover-settings-card');
 
-            if (!modelSelect || !coverCloseCmdInput || !coverOpenCmdInput) return;
+            if (!modelSelect || !coverSettingsCard) return;
 
             const isPremium = modelSelect.value === 'Premium';
-            coverCloseCmdInput.disabled = !isPremium;
-            coverOpenCmdInput.disabled = !isPremium;
 
-            // Toggle tooltip visibility
-            const coverCloseTooltip = coverCloseCmdInput.parentElement.querySelector('.rc-cover-tooltip');
-            const coverOpenTooltip = coverOpenCmdInput.parentElement.querySelector('.rc-cover-tooltip');
-
-            if (coverCloseTooltip) {
-              if (isPremium) {
-                coverCloseTooltip.classList.remove('show');
-              } else {
-                coverCloseTooltip.classList.add('show');
-              }
-            }
-
-            if (coverOpenTooltip) {
-              if (isPremium) {
-                coverOpenTooltip.classList.remove('show');
-              } else {
-                coverOpenTooltip.classList.add('show');
-              }
+            if (isPremium) {
+              coverSettingsCard.classList.remove('disabled');
+            } else {
+              coverSettingsCard.classList.add('disabled');
             }
           };
 
@@ -2271,6 +2310,9 @@ export async function onLoad(ctx) {
             const performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
             const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
             const zRetreatInput = getInput('rc-z-retreat');
+            const zProbeStartInput = getInput('rc-z-probe-start');
+            const seekDistanceInput = getInput('rc-seek-distance');
+            const seekFeedrateInput = getInput('rc-seek-feedrate');
             const toolSensorInput = getInput('rc-tool-sensor');
             const coverCloseCmdInput = getInput('rc-cover-close-cmd');
             const coverOpenCmdInput = getInput('rc-cover-open-cmd');
@@ -2291,6 +2333,9 @@ export async function onLoad(ctx) {
               zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
               zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
               zRetreat: zRetreatInput ? getParseFloat(zRetreatInput.value) : 7,
+              zProbeStart: zProbeStartInput ? getParseFloat(zProbeStartInput.value) : -20,
+              seekDistance: seekDistanceInput ? getParseFloat(seekDistanceInput.value) : 50,
+              seekFeedrate: seekFeedrateInput ? getParseFloat(seekFeedrateInput.value) : 500,
               toolSensor: toolSensorInput ? toolSensorInput.value : '_toolsetter_state',
               coverCloseCmd: coverCloseCmdInput ? coverCloseCmdInput.value : '',
               coverOpenCmd: coverOpenCmdInput ? coverOpenCmdInput.value : '',
@@ -2531,7 +2576,6 @@ export async function onLoad(ctx) {
               const newColletSize = colletSelect.value;
               const loadRpmInput = getInput('rc-load-rpm');
               const unloadRpmInput = getInput('rc-unload-rpm');
-              const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
               const zRetreatInput = getInput('rc-z-retreat');
 
               if (!loadRpmInput || !unloadRpmInput) return;
@@ -2539,14 +2583,10 @@ export async function onLoad(ctx) {
               // Always update to new collet size defaults
               const newLoadDefault = newColletSize === 'ER16' ? 1600 : 1200;
               const newUnloadDefault = newColletSize === 'ER16' ? 2000 : 1500;
-              const newSpindleAtSpeedDefault = newColletSize === 'ER16' ? true : false;
               const newZRetreatDefault = newColletSize === 'ER16' ? 17 : 7;
 
               loadRpmInput.value = String(newLoadDefault);
               unloadRpmInput.value = String(newUnloadDefault);
-              if (spindleAtSpeedCheck) {
-                spindleAtSpeedCheck.checked = newSpindleAtSpeedDefault;
-              }
               if (zRetreatInput) {
                 zRetreatInput.value = String(newZRetreatDefault);
               }
