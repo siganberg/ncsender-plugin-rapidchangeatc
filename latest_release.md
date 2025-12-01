@@ -1,5 +1,4 @@
 ## What's Changed
 
 ### ✨ New Features
-- Added customizable seek distance and feedrate settings for tool length sensor operations
-- Added configurable starting z-height for tool length sensor (TLS) measurements
+- Added automatic cover opening and closing during Tool Length Sensor (TLS) operations
