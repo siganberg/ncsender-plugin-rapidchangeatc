@@ -230,12 +230,20 @@ function createToolLengthSetRoutine(settings) {
 
 function createToolLengthSetProgram(settings) {
   const tlsRoutine = createToolLengthSetRoutine(settings).join('\n');
+
+  // Cover commands (Premium model only, and only if not empty)
+  const isPremium = settings.model === 'Premium';
+  const coverOpenCmd = isPremium && settings.coverOpenCmd && settings.coverOpenCmd.trim() !== '' ? settings.coverOpenCmd.trim() : '';
+  const coverCloseCmd = isPremium && settings.coverCloseCmd && settings.coverCloseCmd.trim() !== '' ? settings.coverCloseCmd.trim() : '';
+
   const gcode = `
     (Start of Tool Length Setter)
     #<return_units> = [20 + #<_metric>]
     G21
+    ${coverOpenCmd}
     ${tlsRoutine}
     G53 G0 Z${settings.zSafe}
+    ${coverCloseCmd}
     G[#<return_units>]
     (End of Tool Length Setter)
   `.trim();
