@@ -1,4 +1,7 @@
 ## What's Changed
 
 ### ✨ New Features
-- Added automatic cover opening and closing during Tool Length Sensor (TLS) operations
+- Added IR state display for better visibility of instrument flight rules status
+
+### 🔧 Improvements
+- Merged buttons into a single compact control for cleaner interface
