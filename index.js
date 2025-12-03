@@ -1614,6 +1614,20 @@ export async function onLoad(ctx) {
           visibility: visible;
           opacity: 1;
         }
+
+        .rc-probe-led {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: #ff0000;
+          box-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
+          transition: all 0.3s ease;
+        }
+
+        .rc-probe-led.rc-probe-led--on {
+          background: #28a745;
+          box-shadow: 0 0 14px rgba(40, 167, 69, 0.9);
+        }
       </style>
 
       <div class="rc-dialog-wrapper">
@@ -1697,6 +1711,10 @@ export async function onLoad(ctx) {
                   <button type="button" class="rc-button rc-button-grab rc-button-group-left" id="rc-pocket1-grab">Grab</button>
                   <button type="button" class="rc-button rc-button-auto-calibrate" id="rc-auto-calibrate-btn">Auto Detect</button>
                   <button type="button" class="rc-button rc-button-group-right" id="rc-auto-detect-help">?</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 13px; color: var(--color-text-secondary, #999);">IR</span>
+                  <span id="rc-probe-led" class="rc-probe-led"></span>
                 </div>
                 <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
                   <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
@@ -2505,6 +2523,18 @@ export async function onLoad(ctx) {
             const coords = extractCoordinatesFromPayload(event.data.state);
             if (coords) {
               updateAxisDisplay(coords);
+            }
+
+            // Update probe LED
+            const probeLed = document.getElementById('rc-probe-led');
+            if (probeLed && event.data.state?.machineState) {
+              const pnString = event.data.state.machineState.Pn || '';
+              const isProbeActive = pnString.includes('P');
+              if (isProbeActive) {
+                probeLed.classList.add('rc-probe-led--on');
+              } else {
+                probeLed.classList.remove('rc-probe-led--on');
+              }
             }
           };
 
