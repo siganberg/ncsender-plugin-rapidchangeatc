@@ -1479,6 +1479,8 @@ export async function onLoad(ctx) {
           width: auto !important;
           padding: 6px 10px !important;
           margin: 0 !important;
+          border-radius: 0 !important;
+          border-left: 1px solid rgba(0, 0, 0, 0.2) !important;
         }
 
         .rc-button:hover {
@@ -1578,29 +1580,6 @@ export async function onLoad(ctx) {
         .rc-tooltip:hover .rc-tooltip-text {
           visibility: visible;
           opacity: 1;
-        }
-
-        .rc-help-icon {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: var(--color-accent);
-          color: white;
-          border: none;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: bold;
-          margin-left: 8px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-          flex-shrink: 0;
-        }
-
-        .rc-help-icon:hover {
-          background: var(--color-accent-hover);
-          transform: scale(1.1);
         }
 
         .rc-tooltip-popup {
@@ -1716,11 +1695,11 @@ export async function onLoad(ctx) {
                 <label class="rc-form-label" style="margin: 0;">Pocket 1</label>
                 <div class="rc-button-group">
                   <button type="button" class="rc-button rc-button-grab rc-button-group-left" id="rc-pocket1-grab">Grab</button>
-                  <button type="button" class="rc-button rc-button-auto-calibrate rc-button-group-right" id="rc-auto-calibrate-btn">Auto Detect</button>
-                  <button type="button" class="rc-help-icon" id="rc-auto-detect-help">?</button>
-                  <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
-                    <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
-                  </div>
+                  <button type="button" class="rc-button rc-button-auto-calibrate" id="rc-auto-calibrate-btn">Auto Detect</button>
+                  <button type="button" class="rc-button rc-button-group-right" id="rc-auto-detect-help">?</button>
+                </div>
+                <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
+                  <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
                 </div>
               </div>
               <div class="rc-coordinate-group">
