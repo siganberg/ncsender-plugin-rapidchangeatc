@@ -243,6 +243,7 @@ function createToolLengthSetProgram(settings) {
     ${coverOpenCmd}
     ${tlsRoutine}
     G53 G0 Z${settings.zSafe}
+    G4 P0
     ${coverCloseCmd}
     G[#<return_units>]
     (End of Tool Length Setter)
@@ -306,11 +307,22 @@ function handleHomeCommand(commands, settings, ctx) {
   const homeCommand = commands[homeIndex];
   const tlsRoutine = createToolLengthSetRoutine(settings).join('\n');
 
+  // Cover commands (Premium model only, and only if not empty)
+  const isPremium = settings.model === 'Premium';
+  const coverOpenCmd = isPremium && settings.coverOpenCmd && settings.coverOpenCmd.trim() !== '' ? settings.coverOpenCmd.trim() : '';
+  const coverCloseCmd = isPremium && settings.coverCloseCmd && settings.coverCloseCmd.trim() !== '' ? settings.coverCloseCmd.trim() : '';
+
   const gcode = `
     $H
     o100 IF [#<_tool_offset> EQ 0]
+      #<return_units> = [20 + #<_metric>]
+      G21
+      ${coverOpenCmd}
       ${tlsRoutine}
       G53 G0 Z${settings.zSafe}
+      G4 P0
+      ${coverCloseCmd}
+      G[#<return_units>]
       G53 G0 X0 Y0
     o100 ENDIF
   `.trim();
@@ -596,6 +608,7 @@ function buildToolChangeProgram(settings, currentTool, toolNumber) {
     ${unloadSection}
     ${loadSection}
     G53 G0 Z${settings.zSafe}
+    G4 P0
     ${coverCloseCmd}
     G[#<return_units>]
     (End of RapidChangeATC Plugin Sequence)
