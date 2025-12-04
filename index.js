@@ -214,8 +214,7 @@ function createToolLengthSetRoutine(settings) {
     G53 G0 Z${settings.zProbeStart}
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
-    G0 G91 Z5
-    G38.2 G91 Z-5 F75
+    G38.4 G91 Z5 F75
     G91 G0 Z5
     G90
     #<_ofs_idx> = [#5220 * 20 + 5203]
@@ -248,7 +247,10 @@ function createToolLengthSetProgram(settings) {
     G[#<return_units>]
     (End of Tool Length Setter)
   `.trim();
-  return gcode.split('\n');
+
+  const formatted = formatGCode(gcode);
+
+  return formatted;
 }
 
 function handleTLSCommand(commands, settings, ctx) {
