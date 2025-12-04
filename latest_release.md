@@ -1,4 +1,4 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Fixed tool change sequence to properly wait for final movement before closing the cover
+### 🔧 Improvements
+- Optimized tool change timing by implementing G38.4 for faster TLS positioning
