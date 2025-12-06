@@ -1,4 +1,4 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Merged Probe and Tool Length Sensor functionality for streamlined operation
+- Inverted IR LED color for better visibility and clarity
