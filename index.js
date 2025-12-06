@@ -225,13 +225,14 @@ function createToolLengthSetRoutine(settings) {
     G53 G0 Z${settings.zProbeStart}
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
+    G4 P0.2
     G38.4 G91 Z5 F75
     G91 G0 Z5
     G90
     #<_ofs_idx> = [#5220 * 20 + 5203]
     #<_cur_wcs_z_ofs> = #[#<_ofs_idx>]
-    #<_rc_trigger_mach_z> = [#5063 + #<_cur_wcs_z_ofs>]
-    G43.1 Z[#<_rc_trigger_mach_z>]
+    #<_nc_last_tlo> = [#5063 + #<_cur_wcs_z_ofs>]
+    G43.1 Z[#<_nc_last_tlo>]
     (Notify ncSender that toolLengthSet is now set)
     $#=_tool_offset
   `.trim();
@@ -1645,14 +1646,14 @@ export async function onLoad(ctx) {
           width: 18px;
           height: 18px;
           border-radius: 50%;
-          background: #ff0000;
-          box-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
+          background: #28a745;
+          box-shadow: 0 0 12px rgba(40, 167, 69, 0.8);
           transition: all 0.3s ease;
         }
 
         .rc-probe-led.rc-probe-led--on {
-          background: #28a745;
-          box-shadow: 0 0 14px rgba(40, 167, 69, 0.9);
+          background: #ff0000;
+          box-shadow: 0 0 14px rgba(255, 0, 0, 0.9);
         }
       </style>
 
