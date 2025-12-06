@@ -72,7 +72,9 @@ const buildInitialConfig = (raw = {}) => {
   const spindleAtSpeed = raw.spindleAtSpeed !== undefined && raw.spindleAtSpeed !== null
     ? !!raw.spindleAtSpeed
     : getDefaultSpindleAtSpeed(colletSize);
-  const zRetreat = getDefaultZRetreat(colletSize);
+  const zRetreat = raw.zRetreat !== undefined && raw.zRetreat !== null
+    ? toFiniteNumber(raw.zRetreat, getDefaultZRetreat(colletSize))
+    : getDefaultZRetreat(colletSize);
 
   return {
     // UI Settings
@@ -109,7 +111,7 @@ const buildInitialConfig = (raw = {}) => {
     // Tool Setter Settings
     seekDistance: toFiniteNumber(raw.seekDistance, 50),
     seekFeedrate: toFiniteNumber(raw.seekFeedrate, 500),
-    toolSensor: raw.toolSensor ?? '_toolsetter_state',
+    toolSensor: raw.toolSensor ?? 'Probe/TLS',
 
     // Cover Commands (Premium only)
     coverCloseCmd: raw.coverCloseCmd ?? '',
@@ -146,6 +148,15 @@ function getSensorCheckCondition(toolSensor, checkValue, oNumber) {
     } else {
       // Check if sensor IS triggered (NE -1 means input detected)
       return `M66 P${portNumber} L3 Q0.2\n o${oNumber} IF [#5399 NE -1]`;
+    }
+  } else if (toolSensor === 'Probe/TLS') {
+    // Combined probe and toolsetter state check
+    if (checkValue === 0) {
+      // Check if BOTH sensors are NOT triggered (AND condition)
+      return `o${oNumber} IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]`;
+    } else {
+      // Check if EITHER sensor IS triggered (OR condition)
+      return `o${oNumber} IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]`;
     }
   } else {
     // Use native probe/toolsetter state
@@ -1846,9 +1857,7 @@ export async function onLoad(ctx) {
                   <div class="rc-form-group-horizontal">
                     <label class="rc-form-label">Tool Sensor/IR Port</label>
                     <select class="rc-select" id="rc-tool-sensor">
-                      <option value="_probe_state">_probe_state</option>
-                      <option value="_probe2_state">_probe2_state</option>
-                      <option value="_toolsetter_state" selected>_toolsetter_state</option>
+                      <option value="Probe/TLS" selected>Probe/TLS</option>
                       <option value="Aux P1">Aux P1</option>
                       <option value="Aux P2">Aux P2</option>
                       <option value="Aux P3">Aux P3</option>
@@ -2145,12 +2154,12 @@ export async function onLoad(ctx) {
             const toolSensorInput = getInput('rc-tool-sensor');
             if (toolSensorInput) {
               // Migrate old values to new format
-              let toolSensorValue = initialConfig.toolSensor ?? '_toolsetter_state';
+              let toolSensorValue = initialConfig.toolSensor ?? 'Probe/TLS';
 
-              // If old value doesn't exist in new options, use default
-              const validOptions = ['_probe_state', '_probe2_state', '_toolsetter_state', 'Aux P1', 'Aux P2', 'Aux P3', 'Aux P4', 'Aux P5', 'Aux P6'];
+              // If old value doesn't exist in new options, migrate to Probe/TLS
+              const validOptions = ['Probe/TLS', 'Aux P1', 'Aux P2', 'Aux P3', 'Aux P4', 'Aux P5', 'Aux P6'];
               if (!validOptions.includes(toolSensorValue)) {
-                toolSensorValue = '_toolsetter_state';
+                toolSensorValue = 'Probe/TLS';
               }
 
               toolSensorInput.value = toolSensorValue;
