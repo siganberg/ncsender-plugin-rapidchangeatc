@@ -1,4 +1,4 @@
 ## What's Changed
 
-### 🔧 Improvements
-- Inverted IR LED color for better visibility and clarity
+### ✨ New Features
+- Added Probe option for enhanced tool measurement capabilities
