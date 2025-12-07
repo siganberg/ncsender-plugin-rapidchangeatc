@@ -86,6 +86,7 @@ const buildInitialConfig = (raw = {}) => {
     showMacroCommand: raw.showMacroCommand ?? false,
     performTlsAfterHome: raw.performTlsAfterHome ?? false,
     spindleAtSpeed,
+    addProbe: raw.addProbe ?? false,
     atcStartDelay: clampAtcStartDelay(raw.atcStartDelay ?? raw.spindleDelay),
 
     // Position Settings
@@ -875,6 +876,7 @@ export async function onLoad(ctx) {
 
   // Sync tool count from plugin config to app settings
   const pocketCount = pluginSettings.pockets || 0;
+  const addProbe = pluginSettings.addProbe ?? false;
   const currentToolSettings = appSettings.tool || {};
 
   // Set tool.source to indicate this plugin controls the tool count
@@ -892,13 +894,14 @@ export async function onLoad(ctx) {
           count: pocketCount,
           source: 'com.ncsender.rapidchangeatc',
           manual: isConfigured,
-          tls: isConfigured
+          tls: isConfigured,
+          probe: addProbe
         }
       })
     });
 
     if (response.ok) {
-      ctx.log(`Tool settings synchronized: count=${pocketCount}, manual=${isConfigured}, tls=${isConfigured} (source: com.ncsender.rapidchangeatc)`);
+      ctx.log(`Tool settings synchronized: count=${pocketCount}, manual=${isConfigured}, tls=${isConfigured}, probe=${addProbe} (source: com.ncsender.rapidchangeatc)`);
     } else {
       ctx.log(`Failed to sync tool settings: ${response.status}`);
     }
@@ -1906,6 +1909,14 @@ export async function onLoad(ctx) {
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
+
+                  <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label" title="Enable probe tool button in the main app">Add Probe</label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="rc-add-probe">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
                 </div>
               </div>
               <div class="rc-right-panel">
@@ -2132,6 +2143,11 @@ export async function onLoad(ctx) {
               spindleAtSpeedCheck.checked = !!initialConfig.spindleAtSpeed;
             }
 
+            const addProbeCheck = getInput('rc-add-probe');
+            if (addProbeCheck) {
+              addProbeCheck.checked = !!initialConfig.addProbe;
+            }
+
             const zRetreatInput = getInput('rc-z-retreat');
             if (zRetreatInput) {
               zRetreatInput.value = String(initialConfig.zRetreat ?? 7);
@@ -2339,6 +2355,7 @@ export async function onLoad(ctx) {
             const showMacroCommandCheck = getInput('rc-show-macro-command');
             const performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
             const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
+            const addProbeCheck = getInput('rc-add-probe');
             const zRetreatInput = getInput('rc-z-retreat');
             const zProbeStartInput = getInput('rc-z-probe-start');
             const seekDistanceInput = getInput('rc-seek-distance');
@@ -2356,6 +2373,7 @@ export async function onLoad(ctx) {
               showMacroCommand: showMacroCommandCheck ? showMacroCommandCheck.checked : false,
               performTlsAfterHome: performTlsAfterHomeCheck ? performTlsAfterHomeCheck.checked : false,
               spindleAtSpeed: spindleAtSpeedCheck ? spindleAtSpeedCheck.checked : false,
+              addProbe: addProbeCheck ? addProbeCheck.checked : false,
               atcStartDelay: atcStartDelayInput ? getParseInt(atcStartDelayInput.value) : 0,
               loadRpm: loadRpmInput ? getParseInt(loadRpmInput.value) : 1200,
               unloadRpm: unloadRpmInput ? getParseInt(unloadRpmInput.value) : 1500,
@@ -2423,7 +2441,8 @@ export async function onLoad(ctx) {
                       count: toolCount,
                       source: 'com.ncsender.rapidchangeatc',
                       manual: true,
-                      tls: true
+                      tls: true,
+                      probe: payload.addProbe
                     }
                   })
                 });
@@ -2660,7 +2679,8 @@ export async function onUnload(ctx) {
           source: null,
           count: 0,
           manual: false,
-          tls: false
+          tls: false,
+          probe: false
         }
       })
     });
