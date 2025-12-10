@@ -329,7 +329,7 @@ function handleHomeCommand(commands, settings, ctx) {
 
   const gcode = `
     $H
-    o100 IF [#<_tool_offset> EQ 0]
+    o100 IF [[#<_tool_offset> EQ 0] AND [#<_current_tool> NE 0]]
       #<return_units> = [20 + #<_metric>]
       G21
       ${coverOpenCmd}
