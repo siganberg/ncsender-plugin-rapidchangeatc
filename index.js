@@ -1182,10 +1182,12 @@ export async function onLoad(ctx) {
 
         .rc-tab-content {
           display: none;
+          height: 100%;
         }
 
         .rc-tab-content.active {
-          display: block;
+          display: flex;
+          flex-direction: column;
         }
 
         .rc-content {
@@ -1197,7 +1199,9 @@ export async function onLoad(ctx) {
           border-left: 1px solid var(--color-border);
           border-right: 1px solid var(--color-border);
           /* border-bottom: 1px solid var(--color-border); */
-          min-height: 515px;
+          min-height: 600px;
+          display: flex;
+          flex-direction: column;
         }
 
         .rc-container {
@@ -1206,6 +1210,7 @@ export async function onLoad(ctx) {
           gap: 12px;
           max-width: 100%;
           overflow-x: hidden;
+          flex: 1;
         }
 
         .rc-left-panel {
@@ -1237,6 +1242,11 @@ export async function onLoad(ctx) {
         .rc-left-panel .rc-calibration-group {
           padding: 18px 20px;
           gap: 16px;
+        }
+
+        .rc-left-panel .rc-calibration-group:last-child,
+        .rc-right-panel .rc-calibration-group:last-child {
+          flex: 1;
         }
 
         .rc-calibration-group.disabled {
