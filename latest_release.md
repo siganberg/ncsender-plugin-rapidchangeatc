@@ -1,4 +1,4 @@
 ## What's Changed
 
-### ✨ New Features
-- Added probe routine for enhanced tool measurement capabilities
+### 🐛 Bug Fixes
+- Fixed layout issues in the plugin interface
