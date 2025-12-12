@@ -7,6 +7,7 @@ const ALLOWED_COLLET_SIZES = ['ER11', 'ER16', 'ER20', 'ER25', 'ER32'];
 const ALLOWED_MODELS = ['Basic', 'Pro', 'Premium'];
 const ORIENTATIONS = ['X', 'Y'];
 const DIRECTIONS = ['Positive', 'Negative'];
+const PROBE_TOOL_NUMBER = 99;
 
 const clampPockets = (value) => {
   const parsed = Number.parseInt(value, 10);
@@ -116,7 +117,11 @@ const buildInitialConfig = (raw = {}) => {
 
     // Cover Commands (Premium only)
     coverCloseCmd: raw.coverCloseCmd ?? '',
-    coverOpenCmd: raw.coverOpenCmd ?? ''
+    coverOpenCmd: raw.coverOpenCmd ?? '',
+
+    // Probe Tool Commands (Tool 99)
+    probeLoadGcode: raw.probeLoadGcode ?? '',
+    probeUnloadGcode: raw.probeUnloadGcode ?? ''
   };
 };
 
@@ -329,17 +334,17 @@ function handleHomeCommand(commands, settings, ctx) {
 
   const gcode = `
     $H
+    #<return_units> = [20 + #<_metric>]
     o100 IF [[#<_tool_offset> EQ 0] AND [#<_current_tool> NE 0]]
-      #<return_units> = [20 + #<_metric>]
       G21
       ${coverOpenCmd}
       ${tlsRoutine}
       G53 G0 Z${settings.zSafe}
       G4 P0
       ${coverCloseCmd}
-      G[#<return_units>]
       G53 G0 X0 Y0
     o100 ENDIF
+    G[#<return_units>]
   `.trim();
 
   const homeProgram = formatGCode(gcode);
@@ -543,6 +548,28 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
   if (currentTool === 0) {
     return '';
   }
+
+  // Handle probe tool (T99) with custom G-code
+  if (currentTool === PROBE_TOOL_NUMBER) {
+    const probeUnloadGcode = settings.probeUnloadGcode?.trim() || '';
+    if (probeUnloadGcode) {
+      return `
+        (Unload Probe Tool T${PROBE_TOOL_NUMBER})
+        G53 G0 Z${settings.zSafe}
+        ${probeUnloadGcode}
+        M61 Q0
+      `.trim();
+    } else {
+      // No custom G-code defined - use manual fallback
+      return `
+        G53 G0 Z${settings.zSafe}
+        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_PROBE)
+        ${createManualToolFallback(settings)}
+        M61 Q0
+      `.trim();
+    }
+  }
+
   if (currentTool > settings.pockets) {
     return `
       G53 G0 Z${settings.zSafe}
@@ -576,6 +603,29 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
 function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
   if (toolNumber === 0) {
     return '';
+  }
+
+  // Handle probe tool (T99) with custom G-code
+  if (toolNumber === PROBE_TOOL_NUMBER) {
+    const probeLoadGcode = settings.probeLoadGcode?.trim() || '';
+    if (probeLoadGcode) {
+      return `
+        (Load Probe Tool T${PROBE_TOOL_NUMBER})
+        G53 G0 Z${settings.zSafe}
+        M61 Q${PROBE_TOOL_NUMBER}
+        ${probeLoadGcode}
+        ${tlsRoutine}
+      `.trim();
+    } else {
+      // No custom G-code defined - use manual fallback
+      return `
+        G53 G0 Z${settings.zSafe}
+        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_PROBE)
+        ${createManualToolFallback(settings)}
+        M61 Q${PROBE_TOOL_NUMBER}
+        ${tlsRoutine}
+      `.trim();
+    }
   }
 
   if (toolNumber <= settings.pockets) {
@@ -1312,6 +1362,20 @@ export async function onLoad(ctx) {
           color: var(--color-text-secondary);
         }
 
+        .rc-textarea {
+          width: 100%;
+          min-height: 80px;
+          resize: vertical;
+          font-family: monospace;
+          font-size: 12px;
+          text-align: left;
+        }
+
+        .rc-form-group-vertical {
+          display: flex;
+          flex-direction: column;
+        }
+
         .rc-select {
           text-align-last: right;
         }
@@ -1909,13 +1973,20 @@ export async function onLoad(ctx) {
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
+                </div>
 
-                  <div class="rc-form-group-horizontal">
-                    <label class="rc-form-label" title="Enable probe tool button in the main app">Add Probe</label>
-                    <label class="toggle-switch">
-                      <input type="checkbox" id="rc-add-probe">
-                      <span class="toggle-slider"></span>
-                    </label>
+                <div class="rc-calibration-group" id="rc-cover-settings-card">
+                  <div class="rc-form-group">
+                    <label class="rc-form-label" style="text-align: center;">Cover Settings</label>
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Close Command</label>
+                      <input type="text" class="rc-input" id="rc-cover-close-cmd" value="">
+                    </div>
+
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Open Command</label>
+                      <input type="text" class="rc-input" id="rc-cover-open-cmd" value="">
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1940,17 +2011,24 @@ export async function onLoad(ctx) {
                   </div>
                 </div>
 
-                <div class="rc-calibration-group" id="rc-cover-settings-card">
-                  <div class="rc-form-group">
-                    <label class="rc-form-label" style="text-align: center;">Cover Settings</label>
-                    <div class="rc-form-group-horizontal">
-                      <label class="rc-form-label">Close Command</label>
-                      <input type="text" class="rc-input" id="rc-cover-close-cmd" value="">
+                <div class="rc-calibration-group" id="rc-probe-settings-card" style="flex: 1;">
+                  <div class="rc-form-group" style="height: 100%; display: flex; flex-direction: column;">
+                    <div class="rc-form-group-horizontal" style="margin-bottom: 12px;">
+                      <label class="rc-form-label" title="Enable probe tool (T99) in the main app">Enable Probe Tool</label>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="rc-add-probe">
+                        <span class="toggle-slider"></span>
+                      </label>
                     </div>
-
-                    <div class="rc-form-group-horizontal">
-                      <label class="rc-form-label">Open Command</label>
-                      <input type="text" class="rc-input" id="rc-cover-open-cmd" value="">
+                    <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 12px; flex: 1;">
+                      <div style="flex: 1; display: flex; flex-direction: column;">
+                        <label class="rc-form-label" style="text-align: left;">Load Probe G-code</label>
+                        <textarea class="rc-input rc-textarea" id="rc-probe-load-gcode" rows="6" placeholder="G-code to load probe tool..." style="flex: 1;"></textarea>
+                      </div>
+                      <div style="flex: 1; display: flex; flex-direction: column;">
+                        <label class="rc-form-label" style="text-align: left;">Unload Probe G-code</label>
+                        <textarea class="rc-input rc-textarea" id="rc-probe-unload-gcode" rows="6" placeholder="G-code to unload probe tool..." style="flex: 1;"></textarea>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2191,6 +2269,16 @@ export async function onLoad(ctx) {
             if (coverOpenCmdInput) {
               coverOpenCmdInput.value = initialConfig.coverOpenCmd ?? '';
             }
+
+            const probeLoadGcodeInput = getInput('rc-probe-load-gcode');
+            if (probeLoadGcodeInput) {
+              probeLoadGcodeInput.value = initialConfig.probeLoadGcode ?? '';
+            }
+
+            const probeUnloadGcodeInput = getInput('rc-probe-unload-gcode');
+            if (probeUnloadGcodeInput) {
+              probeUnloadGcodeInput.value = initialConfig.probeUnloadGcode ?? '';
+            }
           };
 
           // Function to update cover command inputs based on model selection
@@ -2206,6 +2294,28 @@ export async function onLoad(ctx) {
               coverSettingsCard.classList.remove('disabled');
             } else {
               coverSettingsCard.classList.add('disabled');
+            }
+          };
+
+          // Function to update probe G-code fields based on Add Probe checkbox
+          const updateProbeGcodeState = () => {
+            const addProbeCheck = getInput('rc-add-probe');
+            const probeGcodeFields = document.getElementById('rc-probe-gcode-fields');
+            const probeLoadGcode = getInput('rc-probe-load-gcode');
+            const probeUnloadGcode = getInput('rc-probe-unload-gcode');
+
+            if (!addProbeCheck || !probeGcodeFields) return;
+
+            const isEnabled = addProbeCheck.checked;
+
+            if (isEnabled) {
+              probeGcodeFields.classList.remove('disabled');
+              if (probeLoadGcode) probeLoadGcode.disabled = false;
+              if (probeUnloadGcode) probeUnloadGcode.disabled = false;
+            } else {
+              probeGcodeFields.classList.add('disabled');
+              if (probeLoadGcode) probeLoadGcode.disabled = true;
+              if (probeUnloadGcode) probeUnloadGcode.disabled = true;
             }
           };
 
@@ -2363,6 +2473,8 @@ export async function onLoad(ctx) {
             const toolSensorInput = getInput('rc-tool-sensor');
             const coverCloseCmdInput = getInput('rc-cover-close-cmd');
             const coverOpenCmdInput = getInput('rc-cover-open-cmd');
+            const probeLoadGcodeInput = getInput('rc-probe-load-gcode');
+            const probeUnloadGcodeInput = getInput('rc-probe-unload-gcode');
 
             return {
               colletSize: colletSelect ? colletSelect.value : null,
@@ -2387,6 +2499,8 @@ export async function onLoad(ctx) {
               toolSensor: toolSensorInput ? toolSensorInput.value : '_toolsetter_state',
               coverCloseCmd: coverCloseCmdInput ? coverCloseCmdInput.value : '',
               coverOpenCmd: coverOpenCmdInput ? coverOpenCmdInput.value : '',
+              probeLoadGcode: probeLoadGcodeInput ? probeLoadGcodeInput.value : '',
+              probeUnloadGcode: probeUnloadGcodeInput ? probeUnloadGcodeInput.value : '',
               pocket1: {
                 x: pocket1X ? getParseFloat(pocket1X.value) : null,
                 y: pocket1Y ? getParseFloat(pocket1Y.value) : null
@@ -2586,6 +2700,7 @@ export async function onLoad(ctx) {
 
           applyInitialSettings();
           updateCoverCommandsState();
+          updateProbeGcodeState();
 
           // Handle help icon click for Auto Detect tooltip
           const autoDetectHelpIcon = document.getElementById('rc-auto-detect-help');
@@ -2621,6 +2736,12 @@ export async function onLoad(ctx) {
           const modelSelect = getInput('rc-model-select');
           if (modelSelect) {
             modelSelect.addEventListener('change', updateCoverCommandsState);
+          }
+
+          // Add event listener for Add Probe checkbox changes
+          const addProbeCheck = getInput('rc-add-probe');
+          if (addProbeCheck) {
+            addProbeCheck.addEventListener('change', updateProbeGcodeState);
           }
 
           registerButton(POCKET_PREFIX, 'rc-pocket1-grab');
