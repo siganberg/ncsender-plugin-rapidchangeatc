@@ -1,4 +1,4 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Fixed layout issues in the plugin interface
+### ✨ New Features
+- Added configurable pocket distance setting for more precise tool change positioning
