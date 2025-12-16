@@ -1933,6 +1933,11 @@ export async function onLoad(ctx) {
                   </div>
 
                   <div class="rc-form-group-horizontal">
+                    <label class="rc-form-label">Pocket Distance (mm)</label>
+                    <input type="number" class="rc-input" id="rc-pocket-distance" value="45" min="1" max="500" step="0.1">
+                  </div>
+
+                  <div class="rc-form-group-horizontal">
                     <label class="rc-form-label">Tool Sensor/IR Port</label>
                     <select class="rc-select" id="rc-tool-sensor">
                       <option value="Probe/TLS" selected>Probe/TLS</option>
@@ -2241,6 +2246,11 @@ export async function onLoad(ctx) {
               zRetreatInput.value = String(initialConfig.zRetreat ?? 7);
             }
 
+            const pocketDistanceInput = getInput('rc-pocket-distance');
+            if (pocketDistanceInput) {
+              pocketDistanceInput.value = String(initialConfig.pocketDistance ?? 45);
+            }
+
             const zProbeStartInput = getInput('rc-z-probe-start');
             if (zProbeStartInput) {
               zProbeStartInput.value = String(initialConfig.zProbeStart ?? -20);
@@ -2477,6 +2487,7 @@ export async function onLoad(ctx) {
             const spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
             const addProbeCheck = getInput('rc-add-probe');
             const zRetreatInput = getInput('rc-z-retreat');
+            const pocketDistanceInput = getInput('rc-pocket-distance');
             const zProbeStartInput = getInput('rc-z-probe-start');
             const seekDistanceInput = getInput('rc-seek-distance');
             const seekFeedrateInput = getInput('rc-seek-feedrate');
@@ -2503,6 +2514,7 @@ export async function onLoad(ctx) {
               zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
               zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
               zRetreat: zRetreatInput ? getParseFloat(zRetreatInput.value) : 7,
+              pocketDistance: pocketDistanceInput ? getParseFloat(pocketDistanceInput.value) : 45,
               zProbeStart: zProbeStartInput ? getParseFloat(zProbeStartInput.value) : -20,
               seekDistance: seekDistanceInput ? getParseFloat(seekDistanceInput.value) : 50,
               seekFeedrate: seekFeedrateInput ? getParseFloat(seekFeedrateInput.value) : 500,
