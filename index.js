@@ -1284,6 +1284,19 @@ export async function onLoad(ctx) {
           text-align: left;
         }
 
+        .rc-monaco-editor {
+          width: 100%;
+          height: 150px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-small);
+          overflow: hidden;
+        }
+
+        .rc-monaco-editor.disabled {
+          opacity: 0.5;
+          pointer-events: none;
+        }
+
         .rc-form-group-vertical {
           display: flex;
           flex-direction: column;
@@ -1941,11 +1954,11 @@ export async function onLoad(ctx) {
                     <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 12px; flex: 1;">
                       <div style="flex: 1; display: flex; flex-direction: column;">
                         <label class="rc-form-label" style="text-align: left;">Load Probe G-code</label>
-                        <textarea class="rc-input rc-textarea" id="rc-probe-load-gcode" rows="6" placeholder="G-code to load probe tool..." style="flex: 1;"></textarea>
+                        <div id="rc-probe-load-gcode-editor" class="rc-monaco-editor"></div>
                       </div>
                       <div style="flex: 1; display: flex; flex-direction: column;">
                         <label class="rc-form-label" style="text-align: left;">Unload Probe G-code</label>
-                        <textarea class="rc-input rc-textarea" id="rc-probe-unload-gcode" rows="6" placeholder="G-code to unload probe tool..." style="flex: 1;"></textarea>
+                        <div id="rc-probe-unload-gcode-editor" class="rc-monaco-editor"></div>
                       </div>
                     </div>
                   </div>
@@ -1967,6 +1980,81 @@ export async function onLoad(ctx) {
           const MANUAL_TOOL_PREFIX = 'manualtool';
           const FALLBACK_PORT = ${serverPort};
           const initialConfig = ${initialConfigJson};
+
+          // Monaco editor references
+          let probeLoadEditor = null;
+          let probeUnloadEditor = null;
+
+          // Detect theme
+          const isLightTheme = () => document.body.classList.contains('theme-light');
+
+          // Initialize Monaco editors
+          function initMonacoEditors() {
+            // Check if Monaco is available globally (loaded by main app)
+            if (!window.monaco) {
+              console.warn('[RapidChangeATC] Monaco not available, editors will not be initialized');
+              return;
+            }
+
+            const monaco = window.monaco;
+            const theme = isLightTheme() ? 'gcode-light' : 'gcode-dark';
+
+            const editorOptions = {
+              language: 'gcode',
+              theme: theme,
+              minimap: { enabled: false },
+              lineNumbers: 'on',
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              automaticLayout: true,
+              fontSize: 12,
+              fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+              renderLineHighlight: 'none',
+              folding: false,
+              glyphMargin: false,
+              lineDecorationsWidth: 8,
+              lineNumbersMinChars: 2,
+              scrollbar: {
+                vertical: 'auto',
+                horizontal: 'hidden',
+                useShadows: false,
+                verticalScrollbarSize: 6
+              }
+            };
+
+            // Create Load Probe editor
+            const loadContainer = document.getElementById('rc-probe-load-gcode-editor');
+            if (loadContainer) {
+              probeLoadEditor = monaco.editor.create(loadContainer, {
+                ...editorOptions,
+                value: initialConfig.probeLoadGcode || ''
+              });
+            }
+
+            // Create Unload Probe editor
+            const unloadContainer = document.getElementById('rc-probe-unload-gcode-editor');
+            if (unloadContainer) {
+              probeUnloadEditor = monaco.editor.create(unloadContainer, {
+                ...editorOptions,
+                value: initialConfig.probeUnloadGcode || ''
+              });
+            }
+
+            // Watch for theme changes
+            const themeObserver = new MutationObserver(() => {
+              const newTheme = isLightTheme() ? 'gcode-light' : 'gcode-dark';
+              monaco.editor.setTheme(newTheme);
+            });
+            themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+          }
+
+          // Initialize Monaco when DOM is ready
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMonacoEditors);
+          } else {
+            // Small delay to ensure containers are rendered
+            setTimeout(initMonacoEditors, 50);
+          }
 
           // Tab switching logic
           const tabs = document.querySelectorAll('.rc-tab');
@@ -2193,15 +2281,7 @@ export async function onLoad(ctx) {
               coverOpenCmdInput.value = initialConfig.coverOpenCmd ?? '';
             }
 
-            const probeLoadGcodeInput = getInput('rc-probe-load-gcode');
-            if (probeLoadGcodeInput) {
-              probeLoadGcodeInput.value = initialConfig.probeLoadGcode ?? '';
-            }
-
-            const probeUnloadGcodeInput = getInput('rc-probe-unload-gcode');
-            if (probeUnloadGcodeInput) {
-              probeUnloadGcodeInput.value = initialConfig.probeUnloadGcode ?? '';
-            }
+            // Monaco editors are initialized with values in initMonacoEditors()
           };
 
           // Function to update cover command inputs based on model selection
@@ -2224,8 +2304,8 @@ export async function onLoad(ctx) {
           const updateProbeGcodeState = () => {
             const addProbeCheck = getInput('rc-add-probe');
             const probeGcodeFields = document.getElementById('rc-probe-gcode-fields');
-            const probeLoadGcode = getInput('rc-probe-load-gcode');
-            const probeUnloadGcode = getInput('rc-probe-unload-gcode');
+            const loadEditorContainer = document.getElementById('rc-probe-load-gcode-editor');
+            const unloadEditorContainer = document.getElementById('rc-probe-unload-gcode-editor');
 
             if (!addProbeCheck || !probeGcodeFields) return;
 
@@ -2233,12 +2313,16 @@ export async function onLoad(ctx) {
 
             if (isEnabled) {
               probeGcodeFields.classList.remove('disabled');
-              if (probeLoadGcode) probeLoadGcode.disabled = false;
-              if (probeUnloadGcode) probeUnloadGcode.disabled = false;
+              if (loadEditorContainer) loadEditorContainer.classList.remove('disabled');
+              if (unloadEditorContainer) unloadEditorContainer.classList.remove('disabled');
+              if (probeLoadEditor) probeLoadEditor.updateOptions({ readOnly: false });
+              if (probeUnloadEditor) probeUnloadEditor.updateOptions({ readOnly: false });
             } else {
               probeGcodeFields.classList.add('disabled');
-              if (probeLoadGcode) probeLoadGcode.disabled = true;
-              if (probeUnloadGcode) probeUnloadGcode.disabled = true;
+              if (loadEditorContainer) loadEditorContainer.classList.add('disabled');
+              if (unloadEditorContainer) unloadEditorContainer.classList.add('disabled');
+              if (probeLoadEditor) probeLoadEditor.updateOptions({ readOnly: true });
+              if (probeUnloadEditor) probeUnloadEditor.updateOptions({ readOnly: true });
             }
           };
 
@@ -2397,8 +2481,6 @@ export async function onLoad(ctx) {
             const toolSensorInput = getInput('rc-tool-sensor');
             const coverCloseCmdInput = getInput('rc-cover-close-cmd');
             const coverOpenCmdInput = getInput('rc-cover-open-cmd');
-            const probeLoadGcodeInput = getInput('rc-probe-load-gcode');
-            const probeUnloadGcodeInput = getInput('rc-probe-unload-gcode');
 
             return {
               colletSize: colletSelect ? colletSelect.value : null,
@@ -2424,8 +2506,8 @@ export async function onLoad(ctx) {
               toolSensor: toolSensorInput ? toolSensorInput.value : '_toolsetter_state',
               coverCloseCmd: coverCloseCmdInput ? coverCloseCmdInput.value : '',
               coverOpenCmd: coverOpenCmdInput ? coverOpenCmdInput.value : '',
-              probeLoadGcode: probeLoadGcodeInput ? probeLoadGcodeInput.value : '',
-              probeUnloadGcode: probeUnloadGcodeInput ? probeUnloadGcodeInput.value : '',
+              probeLoadGcode: probeLoadEditor ? probeLoadEditor.getValue() : '',
+              probeUnloadGcode: probeUnloadEditor ? probeUnloadEditor.getValue() : '',
               pocket1: {
                 x: pocket1X ? getParseFloat(pocket1X.value) : null,
                 y: pocket1Y ? getParseFloat(pocket1Y.value) : null
