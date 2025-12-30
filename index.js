@@ -726,8 +726,7 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel) {
           gap: 16px;
         }
 
-        .rcs-long-press-button {
-          position: relative;
+        .rcs-action-button {
           padding: 12px 32px;
           border: none;
           border-radius: var(--radius-small);
@@ -735,12 +734,14 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel) {
           font-size: 1rem;
           cursor: pointer;
           transition: all 0.2s ease;
-          overflow: hidden;
           min-width: 140px;
-          user-select: none;
         }
 
-        .rcs-long-press-button:disabled {
+        .rcs-action-button:hover {
+          opacity: 0.9;
+        }
+
+        .rcs-action-button:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
@@ -754,21 +755,6 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel) {
           background: var(--color-success, #16a34a);
           color: white;
         }
-
-        .rcs-button-progress {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          height: 4px;
-          background: rgba(255, 255, 255, 0.5);
-          width: 0%;
-          transition: width 0.05s linear;
-        }
-
-        .rcs-button-label {
-          position: relative;
-          z-index: 1;
-        }
       </style>
 
       <div class="rcs-safety-container">
@@ -776,135 +762,52 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel) {
         <div class="rcs-safety-dialog">
           <div class="rcs-safety-message">${message}</div>
           <div class="rcs-safety-actions">
-            <button class="rcs-long-press-button rcs-button-abort" id="rcs-abort-btn">
-              <span class="rcs-button-label">Abort</span>
-              <div class="rcs-button-progress"></div>
-            </button>
-            <button class="rcs-long-press-button rcs-button-continue" id="rcs-continue-btn">
-              <span class="rcs-button-label">${continueLabel}</span>
-              <div class="rcs-button-progress"></div>
-            </button>
+            <button class="rcs-action-button rcs-button-abort" id="rcs-abort-btn">Abort</button>
+            <button class="rcs-action-button rcs-button-continue" id="rcs-continue-btn">${continueLabel}</button>
           </div>
         </div>
       </div>
 
       <script>
         (function() {
-          const LONG_PRESS_DURATION = 1000;
-          let abortTimer = null;
-          let continueTimer = null;
-          let abortStartTime = 0;
-          let continueStartTime = 0;
-          let abortAnimFrame = null;
-          let continueAnimFrame = null;
-
           const abortBtn = document.getElementById('rcs-abort-btn');
           const continueBtn = document.getElementById('rcs-continue-btn');
-          const abortProgress = abortBtn.querySelector('.rcs-button-progress');
-          const continueProgress = continueBtn.querySelector('.rcs-button-progress');
 
-          const updateProgress = (startTime, progressEl) => {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min((elapsed / LONG_PRESS_DURATION) * 100, 100);
-            progressEl.style.width = progress + '%';
-            return progress < 100;
-          };
-
-          const startAbortPress = () => {
+          abortBtn.addEventListener('click', function() {
             if (abortBtn.disabled) return;
-            abortStartTime = Date.now();
+            abortBtn.disabled = true;
+            continueBtn.disabled = true;
 
-            const animate = () => {
-              if (updateProgress(abortStartTime, abortProgress)) {
-                abortAnimFrame = requestAnimationFrame(animate);
-              }
-            };
-            animate();
+            window.postMessage({
+              type: 'send-command',
+              command: '\\x18',
+              displayCommand: '\\x18 (Soft Reset)'
+            }, '*');
 
-            abortTimer = setTimeout(() => {
-              abortBtn.disabled = true;
-              continueBtn.disabled = true;
+            window.postMessage({
+              type: 'send-command',
+              command: '$NCSENDER_CLEAR_MSG',
+              displayCommand: '$NCSENDER_CLEAR_MSG'
+            }, '*');
+          });
 
-              window.postMessage({
-                type: 'send-command',
-                command: '\\x18',
-                displayCommand: '\\x18 (Soft Reset)'
-              }, '*');
-
-              window.postMessage({
-                type: 'send-command',
-                command: '$NCSENDER_CLEAR_MSG',
-                displayCommand: '$NCSENDER_CLEAR_MSG'
-              }, '*');
-            }, LONG_PRESS_DURATION);
-          };
-
-          const stopAbortPress = () => {
-            if (abortTimer) {
-              clearTimeout(abortTimer);
-              abortTimer = null;
-            }
-            if (abortAnimFrame) {
-              cancelAnimationFrame(abortAnimFrame);
-              abortAnimFrame = null;
-            }
-            abortProgress.style.width = '0%';
-          };
-
-          const startContinuePress = () => {
+          continueBtn.addEventListener('click', function() {
             if (continueBtn.disabled) return;
-            continueStartTime = Date.now();
+            abortBtn.disabled = true;
+            continueBtn.disabled = true;
 
-            const animate = () => {
-              if (updateProgress(continueStartTime, continueProgress)) {
-                continueAnimFrame = requestAnimationFrame(animate);
-              }
-            };
-            animate();
+            window.postMessage({
+              type: 'send-command',
+              command: '~',
+              displayCommand: '~ (Cycle Start)'
+            }, '*');
 
-            continueTimer = setTimeout(() => {
-              abortBtn.disabled = true;
-              continueBtn.disabled = true;
-
-              window.postMessage({
-                type: 'send-command',
-                command: '~',
-                displayCommand: '~ (Cycle Start)'
-              }, '*');
-
-              window.postMessage({
-                type: 'send-command',
-                command: '$NCSENDER_CLEAR_MSG',
-                displayCommand: '$NCSENDER_CLEAR_MSG'
-              }, '*');
-            }, LONG_PRESS_DURATION);
-          };
-
-          const stopContinuePress = () => {
-            if (continueTimer) {
-              clearTimeout(continueTimer);
-              continueTimer = null;
-            }
-            if (continueAnimFrame) {
-              cancelAnimationFrame(continueAnimFrame);
-              continueAnimFrame = null;
-            }
-            continueProgress.style.width = '0%';
-          };
-
-          abortBtn.addEventListener('mousedown', startAbortPress);
-          abortBtn.addEventListener('mouseup', stopAbortPress);
-          abortBtn.addEventListener('mouseleave', stopAbortPress);
-          abortBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startAbortPress(); });
-          abortBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopAbortPress(); });
-          abortBtn.addEventListener('touchcancel', stopAbortPress);
-
-          continueBtn.addEventListener('mousedown', startContinuePress);
-          continueBtn.addEventListener('mouseup', stopContinuePress);
-          continueBtn.addEventListener('mouseleave', stopContinuePress);
-          continueBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startContinuePress(); });
-          continueBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopContinuePress(); });
-          continueBtn.addEventListener('touchcancel', stopContinuePress);
+            window.postMessage({
+              type: 'send-command',
+              command: '$NCSENDER_CLEAR_MSG',
+              displayCommand: '$NCSENDER_CLEAR_MSG'
+            }, '*');
+          });
         })();
       </script>
     `,
@@ -962,22 +865,22 @@ export async function onLoad(ctx) {
   const MESSAGE_MAP = {
     'PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL': {
       title: 'Unload Failed',
-      message: 'Failed to unload the bit. Please manually remove the bit, then <strong>PRESS</strong> and <strong>HOLD</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel the operation.',
+      message: 'Failed to unload the bit. Please manually remove the bit, then click <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
       continueLabel: 'Continue'
     },
     'PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL': {
       title: 'Load Failed',
-      message: 'Failed to load the bit. Please manually install the bit, then <strong>PRESS</strong> and <strong>HOLD</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel the operation.',
+      message: 'Failed to load the bit. Please manually install the bit, then click <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
       continueLabel: 'Continue'
     },
     'PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL': {
       title: 'Manual Unload',
-      message: 'Please remove the current bit, then <strong>press and hold</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
+      message: 'Please remove the current bit, then click <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
       continueLabel: 'Continue'
     },
     'PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL': {
       title: 'Manual Load',
-      message: 'Please install the new bit securely, then <strong>press and hold</strong> <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
+      message: 'Please install the new bit securely, then click <em>"Continue"</em> to proceed or <em>"Abort"</em> to cancel.',
       continueLabel: 'Continue'
     }
   };
