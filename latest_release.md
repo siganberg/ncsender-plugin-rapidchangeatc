@@ -1,4 +1,5 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Abort and Continue buttons now respond to a single tap instead of requiring a long press
+- Tool Length Sensor now uses offset values from the Tool Library for more accurate measurements
+- Upgraded to a better G-code editor/viewer for the Probe G-Code section
