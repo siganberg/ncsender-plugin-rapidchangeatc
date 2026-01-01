@@ -223,11 +223,36 @@ function formatGCode(gcode) {
   return formatted;
 }
 
+// Helper: Fetch tool offsets from tool library
+async function getToolOffsets(toolNumber, ctx) {
+  if (!toolNumber || toolNumber <= 0) {
+    return { x: 0, y: 0 };
+  }
+  try {
+    const pluginSettings = ctx.getSettings() || {};
+    const appSettings = ctx.getAppSettings() || {};
+    const port = resolveServerPort(pluginSettings, appSettings);
+    const response = await fetch(`http://localhost:${port}/api/tools`);
+    if (response.ok) {
+      const tools = await response.json();
+      const tool = tools.find(t => t.toolNumber === toolNumber);
+      if (tool && tool.offsets) {
+        return { x: tool.offsets.x || 0, y: tool.offsets.y || 0 };
+      }
+    }
+  } catch (error) {
+    ctx.log('Failed to fetch tool offsets:', error);
+  }
+  return { x: 0, y: 0 };
+}
+
 // Shared TLS routine generator
-function createToolLengthSetRoutine(settings) {
+function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0 }) {
+  const tlsX = settings.toolSetter.x + (toolOffsets.x || 0);
+  const tlsY = settings.toolSetter.y + (toolOffsets.y || 0);
   const gcode = `
     G53 G0 Z${settings.zSafe}
-    G53 G0 X${settings.toolSetter.x} Y${settings.toolSetter.y}
+    G53 G0 X${tlsX} Y${tlsY}
     G53 G0 Z${settings.zProbeStart}
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
@@ -245,8 +270,8 @@ function createToolLengthSetRoutine(settings) {
   return gcode.split('\n');
 }
 
-function createToolLengthSetProgram(settings) {
-  const tlsRoutine = createToolLengthSetRoutine(settings).join('\n');
+function createToolLengthSetProgram(settings, toolOffsets = { x: 0, y: 0 }) {
+  const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
   // Cover commands (Premium model only, and only if not empty)
   const isPremium = settings.model === 'Premium';
@@ -271,7 +296,7 @@ function createToolLengthSetProgram(settings) {
   return formatted;
 }
 
-function handleTLSCommand(commands, settings, ctx) {
+async function handleTLSCommand(commands, context, settings, ctx) {
   const tlsIndex = commands.findIndex(cmd =>
     cmd.isOriginal && cmd.command.trim().toUpperCase() === '$TLS'
   );
@@ -282,8 +307,15 @@ function handleTLSCommand(commands, settings, ctx) {
 
   ctx.log('$TLS command detected, replacing with tool length setter routine');
 
+  // Get current tool and fetch its TLS offsets
+  const currentTool = context.machineState?.tool ?? 0;
+  const toolOffsets = await getToolOffsets(currentTool, ctx);
+  if (toolOffsets.x !== 0 || toolOffsets.y !== 0) {
+    ctx.log(`Applying TLS offsets for T${currentTool}: X=${toolOffsets.x}, Y=${toolOffsets.y}`);
+  }
+
   const tlsCommand = commands[tlsIndex];
-  const toolLengthSetProgram = createToolLengthSetProgram(settings);
+  const toolLengthSetProgram = createToolLengthSetProgram(settings, toolOffsets);
   const showMacroCommand = settings.showMacroCommand ?? false;
 
   const expandedCommands = toolLengthSetProgram.map((line, index) => {
@@ -308,7 +340,7 @@ function handleTLSCommand(commands, settings, ctx) {
   commands.splice(tlsIndex, 1, ...expandedCommands);
 }
 
-function handleHomeCommand(commands, settings, ctx) {
+async function handleHomeCommand(commands, context, settings, ctx) {
   const homeIndex = commands.findIndex(cmd =>
     cmd.isOriginal && cmd.command.trim().toUpperCase() === '$H'
   );
@@ -324,8 +356,15 @@ function handleHomeCommand(commands, settings, ctx) {
 
   ctx.log('$H command detected with performTlsAfterHome enabled, adding conditional TLS');
 
+  // Get current tool and fetch its TLS offsets
+  const currentTool = context.machineState?.tool ?? 0;
+  const toolOffsets = await getToolOffsets(currentTool, ctx);
+  if (toolOffsets.x !== 0 || toolOffsets.y !== 0) {
+    ctx.log(`Applying TLS offsets for T${currentTool}: X=${toolOffsets.x}, Y=${toolOffsets.y}`);
+  }
+
   const homeCommand = commands[homeIndex];
-  const tlsRoutine = createToolLengthSetRoutine(settings).join('\n');
+  const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
   // Cover commands (Premium model only, and only if not empty)
   const isPremium = settings.model === 'Premium';
@@ -410,7 +449,7 @@ function handlePocket1Command(commands, settings, ctx) {
   commands.splice(pocket1Index, 1, ...expandedCommands);
 }
 
-function handleM6Command(commands, context, settings, ctx) {
+async function handleM6Command(commands, context, settings, ctx) {
   // Find original M6 command
   const m6Index = commands.findIndex(cmd => {
     if (!cmd.isOriginal) return false;
@@ -433,9 +472,15 @@ function handleM6Command(commands, context, settings, ctx) {
   const location = context.lineNumber !== undefined ? `at line ${context.lineNumber}` : `from ${context.sourceId}`;
   const currentTool = context.machineState?.tool ?? 0;
 
+  // Fetch TLS offsets for the NEW tool being loaded
+  const toolOffsets = await getToolOffsets(toolNumber, ctx);
+  if (toolOffsets.x !== 0 || toolOffsets.y !== 0) {
+    ctx.log(`Applying TLS offsets for T${toolNumber}: X=${toolOffsets.x}, Y=${toolOffsets.y}`);
+  }
+
   ctx.log(`M6 detected with tool T${toolNumber} ${location}, current tool: T${currentTool}, executing tool change program`);
 
-  const toolChangeProgram = buildToolChangeProgram(settings, currentTool, toolNumber);
+  const toolChangeProgram = buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets);
   const showMacroCommand = settings.showMacroCommand ?? false;
 
   const expandedCommands = toolChangeProgram.map((line, index) => {
@@ -646,11 +691,11 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
   }
 }
 
-function buildToolChangeProgram(settings, currentTool, toolNumber) {
+function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets = { x: 0, y: 0 }) {
   // Calculate positions and prepare components
   const sourcePos = calculatePocketPosition(settings, currentTool);
   const targetPos = calculatePocketPosition(settings, toolNumber);
-  const tlsRoutine = createToolLengthSetRoutine(settings).join('\n');
+  const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
   // Build sections
   const atcStartDelaySection = settings.atcStartDelay > 0 ? `G4 P${settings.atcStartDelay}` : '';
@@ -912,16 +957,16 @@ export async function onLoad(ctx) {
     const settings = buildInitialConfig(rawSettings);
 
     // Handle $H (home) command with conditional TLS
-    handleHomeCommand(commands, settings, ctx);
+    await handleHomeCommand(commands, context, settings, ctx);
 
     // Handle $TLS command
-    handleTLSCommand(commands, settings, ctx);
+    await handleTLSCommand(commands, context, settings, ctx);
 
     // Handle $POCKET1 command
     handlePocket1Command(commands, settings, ctx);
 
     // Handle M6 tool change command
-    handleM6Command(commands, context, settings, ctx);
+    await handleM6Command(commands, context, settings, ctx);
 
     return commands;
   });
