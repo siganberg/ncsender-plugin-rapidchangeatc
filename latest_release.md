@@ -1,5 +1,7 @@
 ## What's Changed
 
+### ✨ New Features
+- Added support for TLS Z offset configuration
+
 ### 🔧 Improvements
-- Tool Length Sensor now uses offset values from the Tool Library for more accurate measurements
-- Upgraded to a better G-code editor/viewer for the Probe G-Code section
+- Enhanced user interface elements
