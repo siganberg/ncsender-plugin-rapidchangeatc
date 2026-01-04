@@ -226,7 +226,7 @@ function formatGCode(gcode) {
 // Helper: Fetch tool offsets from tool library
 async function getToolOffsets(toolNumber, ctx) {
   if (!toolNumber || toolNumber <= 0) {
-    return { x: 0, y: 0 };
+    return { x: 0, y: 0, z: 0 };
   }
   try {
     const pluginSettings = ctx.getSettings() || {};
@@ -237,23 +237,29 @@ async function getToolOffsets(toolNumber, ctx) {
       const tools = await response.json();
       const tool = tools.find(t => t.toolNumber === toolNumber);
       if (tool && tool.offsets) {
-        return { x: tool.offsets.x || 0, y: tool.offsets.y || 0 };
+        return { x: tool.offsets.x || 0, y: tool.offsets.y || 0, z: tool.offsets.z || 0 };
       }
     }
   } catch (error) {
     ctx.log('Failed to fetch tool offsets:', error);
   }
-  return { x: 0, y: 0 };
+  return { x: 0, y: 0, z: 0 };
 }
 
 // Shared TLS routine generator
-function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0 }) {
+function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }) {
   const tlsX = settings.toolSetter.x + (toolOffsets.x || 0);
   const tlsY = settings.toolSetter.y + (toolOffsets.y || 0);
+  const tlsZ = toolOffsets.z || 0;
+
+  // Extra Z rapid move for shorter tools (z offset is typically negative)
+  const extraZMove = tlsZ !== 0 ? `G91 G0 Z${tlsZ}\n    G90` : '';
+
   const gcode = `
     G53 G0 Z${settings.zSafe}
     G53 G0 X${tlsX} Y${tlsY}
     G53 G0 Z${settings.zProbeStart}
+    ${extraZMove}
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
     G4 P0.2
@@ -270,7 +276,7 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0 }) {
   return gcode.split('\n');
 }
 
-function createToolLengthSetProgram(settings, toolOffsets = { x: 0, y: 0 }) {
+function createToolLengthSetProgram(settings, toolOffsets = { x: 0, y: 0, z: 0 }) {
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
   // Cover commands (Premium model only, and only if not empty)
@@ -310,8 +316,8 @@ async function handleTLSCommand(commands, context, settings, ctx) {
   // Get current tool and fetch its TLS offsets
   const currentTool = context.machineState?.tool ?? 0;
   const toolOffsets = await getToolOffsets(currentTool, ctx);
-  if (toolOffsets.x !== 0 || toolOffsets.y !== 0) {
-    ctx.log(`Applying TLS offsets for T${currentTool}: X=${toolOffsets.x}, Y=${toolOffsets.y}`);
+  if (toolOffsets.x !== 0 || toolOffsets.y !== 0 || toolOffsets.z !== 0) {
+    ctx.log(`Applying TLS offsets for T${currentTool}: X=${toolOffsets.x}, Y=${toolOffsets.y}, Z=${toolOffsets.z}`);
   }
 
   const tlsCommand = commands[tlsIndex];
@@ -359,8 +365,8 @@ async function handleHomeCommand(commands, context, settings, ctx) {
   // Get current tool and fetch its TLS offsets
   const currentTool = context.machineState?.tool ?? 0;
   const toolOffsets = await getToolOffsets(currentTool, ctx);
-  if (toolOffsets.x !== 0 || toolOffsets.y !== 0) {
-    ctx.log(`Applying TLS offsets for T${currentTool}: X=${toolOffsets.x}, Y=${toolOffsets.y}`);
+  if (toolOffsets.x !== 0 || toolOffsets.y !== 0 || toolOffsets.z !== 0) {
+    ctx.log(`Applying TLS offsets for T${currentTool}: X=${toolOffsets.x}, Y=${toolOffsets.y}, Z=${toolOffsets.z}`);
   }
 
   const homeCommand = commands[homeIndex];
@@ -1331,7 +1337,7 @@ export async function onLoad(ctx) {
 
         .rc-monaco-editor {
           width: 100%;
-          height: 150px;
+          height: 170px;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-small);
           overflow: hidden;
@@ -1987,8 +1993,8 @@ export async function onLoad(ctx) {
                   </div>
                 </div>
 
-                <div class="rc-calibration-group" id="rc-probe-settings-card" style="flex: 1;">
-                  <div class="rc-form-group" style="height: 100%; display: flex; flex-direction: column;">
+                <div class="rc-calibration-group" id="rc-probe-settings-card">
+                  <div class="rc-form-group" style="display: flex; flex-direction: column;">
                     <div class="rc-form-group-horizontal" style="margin-bottom: 12px;">
                       <label class="rc-form-label" title="Enable probe tool (T99) in the main app">Enable Probe Tool</label>
                       <label class="toggle-switch">
@@ -1996,12 +2002,12 @@ export async function onLoad(ctx) {
                         <span class="toggle-slider"></span>
                       </label>
                     </div>
-                    <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 12px; flex: 1;">
-                      <div style="flex: 1; display: flex; flex-direction: column;">
+                    <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 8px;">
+                      <div style="display: flex; flex-direction: column;">
                         <label class="rc-form-label" style="text-align: left;">Load Probe G-code</label>
                         <div id="rc-probe-load-gcode-editor" class="rc-monaco-editor"></div>
                       </div>
-                      <div style="flex: 1; display: flex; flex-direction: column;">
+                      <div style="display: flex; flex-direction: column;">
                         <label class="rc-form-label" style="text-align: left;">Unload Probe G-code</label>
                         <div id="rc-probe-unload-gcode-editor" class="rc-monaco-editor"></div>
                       </div>
