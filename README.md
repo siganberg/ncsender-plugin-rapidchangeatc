@@ -144,6 +144,8 @@ This plugin is part of the ncSender ecosystem: https://github.com/siganberg/ncSe
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This plugin is available under a **dual license** (GPL-3.0 + Commercial).
+
+See the [LICENSE](LICENSE) file for details, or contact support@franciscreation.com for commercial licensing.
 
 Copyright (C) 2024 Francis Marasigan
