@@ -1,7 +1,4 @@
 ## What's Changed
 
 ### ✨ New Features
-- Added support for TLS Z offset configuration
-
-### 🔧 Improvements
-- Enhanced user interface elements
+- Added options to turn ON/OFF one of the Aux Output during TLS
