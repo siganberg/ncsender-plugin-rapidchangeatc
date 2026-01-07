@@ -136,7 +136,12 @@ const buildInitialConfig = (raw = {}) => {
 
     // Probe Tool Commands (Tool 99)
     probeLoadGcode: raw.probeLoadGcode ?? '',
-    probeUnloadGcode: raw.probeUnloadGcode ?? ''
+    probeUnloadGcode: raw.probeUnloadGcode ?? '',
+
+    // Aux Output Settings (-1 = disabled, 0+ = M64 P{n}, 'M7' or 'M8' for coolant)
+    tlsAuxOutput: raw.tlsAuxOutput === 'M7' || raw.tlsAuxOutput === 'M8'
+      ? raw.tlsAuxOutput
+      : toFiniteNumber(raw.tlsAuxOutput, -1)
   };
 };
 
@@ -270,17 +275,31 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }
   // Extra Z rapid move for shorter tools (z offset is typically negative)
   const extraZMove = tlsZ !== 0 ? `G91 G0 Z${tlsZ}\n    G90` : '';
 
+  // Aux output switching during TLS (if configured)
+  const auxOutput = settings.tlsAuxOutput;
+  let auxOn = '';
+  let auxOff = '';
+  if (auxOutput === 'M7' || auxOutput === 'M8') {
+    auxOn = `G4 P0\n    ${auxOutput}\n    G4 P0`;
+    auxOff = `G4 P0\n    M9\n    G4 P0`;
+  } else if (typeof auxOutput === 'number' && auxOutput >= 0) {
+    auxOn = `G4 P0\n    M64 P${auxOutput}\n    G4 P0`;
+    auxOff = `G4 P0\n    M65 P${auxOutput}\n    G4 P0`;
+  }
+
   const gcode = `
     G53 G0 Z${settings.zSafe}
     G53 G0 X${tlsX} Y${tlsY}
     G53 G0 Z${settings.zProbeStart}
     ${extraZMove}
+    ${auxOn}
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
     G4 P0.2
     G38.4 G91 Z5 F75
     G91 G0 Z5
     G90
+    ${auxOff}
     #<_ofs_idx> = [#5220 * 20 + 5203]
     #<_cur_wcs_z_ofs> = #[#<_ofs_idx>]
     #<_nc_last_tlo> = [#5063 + #<_cur_wcs_z_ofs>]
@@ -2005,6 +2024,13 @@ export async function onLoad(ctx) {
                       <label class="rc-form-label">Seek Feedrate (mm/min)</label>
                       <input type="number" class="rc-input" id="rc-seek-feedrate" value="500" min="1" max="5000" step="1">
                     </div>
+
+                    <div class="rc-form-group-horizontal">
+                      <label class="rc-form-label">Switch Aux during TLS</label>
+                      <select class="rc-select" id="rc-tls-aux-output" style="width: 100px;">
+                        <option value="-1">Disabled</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -2323,6 +2349,8 @@ export async function onLoad(ctx) {
               seekFeedrateInput.value = String(initialConfig.seekFeedrate ?? 500);
             }
 
+            // tlsAuxOutput dropdown is populated by populateAuxOutputs()
+
             const toolSensorInput = getInput('rc-tool-sensor');
             if (toolSensorInput) {
               // Migrate old values to new format
@@ -2544,6 +2572,7 @@ export async function onLoad(ctx) {
             const zProbeStartInput = getInput('rc-z-probe-start');
             const seekDistanceInput = getInput('rc-seek-distance');
             const seekFeedrateInput = getInput('rc-seek-feedrate');
+            const tlsAuxOutputSelect = getInput('rc-tls-aux-output');
             const toolSensorInput = getInput('rc-tool-sensor');
             const coverCloseCmdInput = getInput('rc-cover-close-cmd');
             const coverOpenCmdInput = getInput('rc-cover-open-cmd');
@@ -2569,6 +2598,12 @@ export async function onLoad(ctx) {
               zProbeStart: zProbeStartInput ? getParseFloat(zProbeStartInput.value) : -20,
               seekDistance: seekDistanceInput ? getParseFloat(seekDistanceInput.value) : 50,
               seekFeedrate: seekFeedrateInput ? getParseFloat(seekFeedrateInput.value) : 500,
+              tlsAuxOutput: (() => {
+                if (!tlsAuxOutputSelect) return -1;
+                const val = tlsAuxOutputSelect.value;
+                if (val === 'M7' || val === 'M8') return val;
+                return parseInt(val) || -1;
+              })(),
               toolSensor: toolSensorInput ? toolSensorInput.value : '_toolsetter_state',
               coverCloseCmd: coverCloseCmdInput ? coverCloseCmdInput.value : '',
               coverOpenCmd: coverOpenCmdInput ? coverOpenCmdInput.value : '',
@@ -2771,9 +2806,59 @@ export async function onLoad(ctx) {
 
           window.addEventListener('message', handleServerStateUpdate);
 
+          // Populate aux output dropdown
+          const populateAuxOutputs = async () => {
+            try {
+              const [stateResponse, settingsResponse] = await Promise.all([
+                fetch(BASE_URL + '/api/server-state'),
+                fetch(BASE_URL + '/api/settings')
+              ]);
+
+              if (!stateResponse.ok) return;
+
+              const state = await stateResponse.json();
+              const settings = settingsResponse.ok ? await settingsResponse.json() : {};
+              const outputPins = state?.machineState?.outputPins || state?.outputPins || 0;
+              const auxOutputsConfig = settings?.auxOutputs || [];
+
+              const nameMap = {};
+              for (const output of auxOutputsConfig) {
+                if (output.on && output.name) {
+                  nameMap[output.on.toUpperCase()] = output.name;
+                }
+              }
+
+              const select = getInput('rc-tls-aux-output');
+              if (!select) return;
+
+              const m8Option = document.createElement('option');
+              m8Option.value = 'M8';
+              m8Option.textContent = nameMap['M8'] || 'M8';
+              select.appendChild(m8Option);
+
+              const m7Option = document.createElement('option');
+              m7Option.value = 'M7';
+              m7Option.textContent = nameMap['M7'] || 'M7';
+              select.appendChild(m7Option);
+
+              for (let i = 0; i < outputPins; i++) {
+                const option = document.createElement('option');
+                const gcode = 'M64 P' + i;
+                option.value = i;
+                option.textContent = nameMap[gcode.toUpperCase()] || gcode;
+                select.appendChild(option);
+              }
+
+              select.value = initialConfig.tlsAuxOutput ?? -1;
+            } catch (error) {
+              console.error('[RapidChangeATC] Failed to populate aux outputs:', error);
+            }
+          };
+
           applyInitialSettings();
           updateCoverCommandsState();
           updateProbeGcodeState();
+          populateAuxOutputs();
 
           // Handle help icon click for Auto Detect tooltip
           const autoDetectHelpIcon = document.getElementById('rc-auto-detect-help');
