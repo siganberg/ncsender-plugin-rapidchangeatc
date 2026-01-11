@@ -614,12 +614,14 @@ function createToolLoad(settings, tool) {
     G53 G0 Z${zone1}
     G4 P0.2
     ${sensorCheckNotTriggered}
+      G4 P0
       (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
       ${manualFallback}
     o300 ELSE
       G53 G0 Z${zone2}
       G4 P0.2
       ${sensorCheckTriggered}
+        G4 P0
         (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
         ${manualFallback}
       ${sensorCheckClose301}
@@ -648,6 +650,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       // No custom G-code defined - use manual fallback
       return `
         G53 G0 Z${settings.zSafe}
+        G4 P0
         (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_PROBE)
         ${createManualToolFallback(settings)}
         M61 Q0
@@ -658,6 +661,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
   if (currentTool > settings.pockets) {
     return `
       G53 G0 Z${settings.zSafe}
+      G4 P0
       (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL)
       ${createManualToolFallback(settings)}
       M61 Q0
@@ -675,6 +679,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       ${sensorCheckTriggered100}
         ${createToolUnload(settings)}
         ${sensorCheckTriggered101}
+          G4 P0
           (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL)
           ${createManualToolFallback(settings)}
         ${sensorCheckClose101}
@@ -705,6 +710,7 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
       // No custom G-code defined - use manual fallback
       return `
         G53 G0 Z${settings.zSafe}
+        G4 P0
         (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_PROBE)
         ${createManualToolFallback(settings)}
         M61 Q${PROBE_TOOL_NUMBER}
@@ -723,6 +729,7 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
   } else {
     return `
       G53 G0 Z${settings.zSafe}
+      G4 P0
       (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL)
       ${createManualToolFallback(settings)}
       M61 Q${toolNumber}
