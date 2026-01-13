@@ -743,17 +743,17 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
   // Assemble complete program
   const gcode = `
     (Start of RapidChangeATC Plugin Sequence)
+    ${preToolChangeCmd}
     #<return_units> = [20 + #<_metric>]
     G21
     M5
-    ${preToolChangeCmd}
     ${atcStartDelaySection}
     ${unloadSection}
     ${loadSection}
     G53 G0 Z${settings.zSafe}
     G4 P0
-    ${postToolChangeCmd}
     G[#<return_units>]
+    ${postToolChangeCmd}
     (End of RapidChangeATC Plugin Sequence)
   `.trim();
 
@@ -859,14 +859,7 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel, abortEventG
             abortBtn.disabled = true;
             continueBtn.disabled = true;
 
-            // First send soft reset to stop any movement
-            window.postMessage({
-              type: 'send-command',
-              command: '\\x18',
-              displayCommand: '\\x18 (Soft Reset)'
-            }, '*');
-
-            // Execute abort event G-code if configured
+            // Execute abort event G-code first if configured
             if (abortGcodeLines.length > 0) {
               abortGcodeLines.forEach(function(line) {
                 window.postMessage({
@@ -876,6 +869,13 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel, abortEventG
                 }, '*');
               });
             }
+
+            // Then send soft reset to stop everything
+            window.postMessage({
+              type: 'send-command',
+              command: '\\x18',
+              displayCommand: '\\x18 (Soft Reset)'
+            }, '*');
 
             window.postMessage({
               type: 'send-command',
@@ -1179,6 +1179,7 @@ export async function onLoad(ctx) {
 
         .rc-tab-content {
           display: none;
+          flex: 1;
           height: 100%;
         }
 
@@ -1196,7 +1197,7 @@ export async function onLoad(ctx) {
           border-left: 1px solid var(--color-border);
           border-right: 1px solid var(--color-border);
           /* border-bottom: 1px solid var(--color-border); */
-          min-height: 600px;
+          height: 690px;
           display: flex;
           flex-direction: column;
         }
@@ -1234,6 +1235,7 @@ export async function onLoad(ctx) {
           display: flex;
           flex-direction: column;
           gap: 12px;
+          justify-content: center;
         }
 
         .rc-left-panel .rc-calibration-group {
@@ -1244,6 +1246,10 @@ export async function onLoad(ctx) {
         .rc-left-panel .rc-calibration-group:last-child,
         .rc-right-panel .rc-calibration-group:last-child {
           flex: 1;
+        }
+
+        .rc-right-panel .rc-calibration-group:first-child {
+          min-height: 140px;
         }
 
         .rc-calibration-group.disabled {
@@ -1749,10 +1755,11 @@ export async function onLoad(ctx) {
             <div class="rc-container">
               <!-- Left Panel: Form Controls -->
           <div class="rc-left-panel">
-          <div class="rc-calibration-group">
+          <div class="rc-calibration-group" style="min-height: 180px;">
+            <label class="rc-form-label" style="text-align: center; margin-bottom: 8px;">Magazine Settings</label>
             <div class="rc-form-row">
               <div class="rc-form-group">
-                <label class="rc-form-label">Collet Size</label>
+                <label class="rc-form-label" style="text-align: center;">Collet Size</label>
                 <select class="rc-select" id="rc-collet-size">
                   <option value="ER11" disabled>ER11</option>
                   <option value="ER16">ER16</option>
@@ -1763,7 +1770,7 @@ export async function onLoad(ctx) {
               </div>
 
               <div class="rc-form-group">
-                <label class="rc-form-label">Pocket Size</label>
+                <label class="rc-form-label" style="text-align: center;">Pocket Size</label>
                 <select class="rc-select" id="rc-pockets">
                   <option value="1">1</option>
                   <option value="2">2</option>
@@ -1777,7 +1784,7 @@ export async function onLoad(ctx) {
               </div>
 
               <div class="rc-form-group">
-                <label class="rc-form-label">Model</label>
+                <label class="rc-form-label" style="text-align: center;">Model</label>
                 <select class="rc-select" id="rc-model-select">
                   <option value="Basic" disabled>Basic</option>
                   <option value="Pro" selected>Pro</option>
@@ -1786,9 +1793,9 @@ export async function onLoad(ctx) {
               </div>
             </div>
 
-            <div class="rc-form-row-wide">
-              <div class="rc-form-group-horizontal">
-                <label class="rc-form-label">Orientation</label>
+            <div style="display: flex; gap: 48px; justify-content: center; margin-top: 8px;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <label class="rc-form-label" style="margin: 0;">Orientation</label>
                 <div class="rc-slider-toggle" id="rc-orientation-toggle">
                   <span class="rc-slider-option active" data-value="Y">Y</span>
                   <span class="rc-slider-option" data-value="X">X</span>
@@ -1796,8 +1803,8 @@ export async function onLoad(ctx) {
                 </div>
               </div>
 
-              <div class="rc-form-group-horizontal">
-                <label class="rc-form-label" title="Pocket 1 → 2">Direction</label>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <label class="rc-form-label" title="Pocket 1 → 2" style="margin: 0;">Direction</label>
                 <div class="rc-slider-toggle" id="rc-direction-toggle">
                   <span class="rc-slider-option active" data-value="Negative">-</span>
                   <span class="rc-slider-option" data-value="Positive">+</span>
@@ -1807,7 +1814,7 @@ export async function onLoad(ctx) {
             </div>
           </div>
 
-          <div class="rc-calibration-group">
+          <div class="rc-calibration-group" style="min-height: 220px;">
             <div class="rc-form-group">
               <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
                 <label class="rc-form-label" style="margin: 0;">Pocket 1</label>
@@ -1824,49 +1831,48 @@ export async function onLoad(ctx) {
                   <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
                 </div>
               </div>
-              <div class="rc-coordinate-group">
-                <div class="rc-coord-input-wrapper">
-                  <label class="rc-coord-label-inline" for="rc-pocket1-x">X</label>
-                  <input type="number" class="rc-input" id="rc-pocket1-x" value="0" step="0.001">
+              <div style="display: flex; gap: 24px; justify-content: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-pocket1-x" style="margin: 0;">X</label>
+                  <input type="number" class="rc-input" id="rc-pocket1-x" value="0" step="0.001" style="width: 100px;">
                 </div>
-                <div class="rc-coord-input-wrapper">
-                  <label class="rc-coord-label-inline" for="rc-pocket1-y">Y</label>
-                  <input type="number" class="rc-input" id="rc-pocket1-y" value="0" step="0.001">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-pocket1-y" style="margin: 0;">Y</label>
+                  <input type="number" class="rc-input" id="rc-pocket1-y" value="0" step="0.001" style="width: 100px;">
                 </div>
-                <div class="rc-coord-input-wrapper">
-                  <label class="rc-coord-label-inline" for="rc-zengagement">Z</label>
-                  <input type="number" class="rc-input" id="rc-zengagement" value="-100" step="0.001">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-zengagement" style="margin: 0;">Z</label>
+                  <input type="number" class="rc-input" id="rc-zengagement" value="-100" step="0.001" style="width: 100px;">
                 </div>
               </div>
             </div>
 
-            <div class="rc-form-row-wide">
-              <div class="rc-form-group-horizontal">
-                <label class="rc-form-label">Zone 1</label>
-                <input type="number" class="rc-input" id="rc-zone1" value="-27" step="0.001">
+            <div style="display: flex; gap: 24px; justify-content: center; margin-top: 16px;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <label class="rc-form-label" style="margin: 0;">Zone 1</label>
+                <input type="number" class="rc-input" id="rc-zone1" value="-27" step="0.001" style="width: 100px;">
               </div>
-
-              <div class="rc-form-group-horizontal">
-                <label class="rc-form-label">Zone 2</label>
-                <input type="number" class="rc-input" id="rc-zone2" value="-22" step="0.001">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <label class="rc-form-label" style="margin: 0;">Zone 2</label>
+                <input type="number" class="rc-input" id="rc-zone2" value="-22" step="0.001" style="width: 100px;">
               </div>
             </div>
           </div>
 
           <div class="rc-calibration-group">
             <div class="rc-form-group">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
                 <label class="rc-form-label" style="margin: 0;">Tool Setter Coordinates</label>
                 <button type="button" class="rc-button rc-button-grab" id="rc-toolsetter-grab">Grab</button>
               </div>
-              <div class="rc-coordinate-group">
-                <div class="rc-coord-input-wrapper">
-                  <label class="rc-coord-label-inline" for="rc-toolsetter-x">X</label>
-                  <input type="number" class="rc-input" id="rc-toolsetter-x" value="0" step="0.001">
+              <div style="display: flex; gap: 24px; justify-content: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-toolsetter-x" style="margin: 0;">X</label>
+                  <input type="number" class="rc-input" id="rc-toolsetter-x" value="0" step="0.001" style="width: 100px;">
                 </div>
-                <div class="rc-coord-input-wrapper">
-                  <label class="rc-coord-label-inline" for="rc-toolsetter-y">Y</label>
-                  <input type="number" class="rc-input" id="rc-toolsetter-y" value="0" step="0.001">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-toolsetter-y" style="margin: 0;">Y</label>
+                  <input type="number" class="rc-input" id="rc-toolsetter-y" value="0" step="0.001" style="width: 100px;">
                 </div>
               </div>
             </div>
@@ -1876,26 +1882,26 @@ export async function onLoad(ctx) {
 
             <!-- Right Panel: Jog Controls -->
             <div class="rc-right-panel">
-              <div class="rc-calibration-group">
+              <div class="rc-calibration-group" style="min-height: 160px;">
                 <div class="rc-form-group">
-                  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
                     <label class="rc-form-label" style="margin: 0;">Manual Tool Coordinates</label>
                     <button type="button" class="rc-button rc-button-grab" id="rc-manualtool-grab">Grab</button>
                   </div>
-                  <div class="rc-coordinate-group">
-                    <div class="rc-coord-input-wrapper">
-                      <label class="rc-coord-label-inline" for="rc-manualtool-x">X</label>
-                      <input type="number" class="rc-input" id="rc-manualtool-x" value="0" step="0.001">
+                  <div style="display: flex; gap: 24px; justify-content: center;">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                      <label class="rc-form-label" for="rc-manualtool-x" style="margin: 0;">X</label>
+                      <input type="number" class="rc-input" id="rc-manualtool-x" value="0" step="0.001" style="width: 100px;">
                     </div>
-                    <div class="rc-coord-input-wrapper">
-                      <label class="rc-coord-label-inline" for="rc-manualtool-y">Y</label>
-                      <input type="number" class="rc-input" id="rc-manualtool-y" value="0" step="0.001">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                      <label class="rc-form-label" for="rc-manualtool-y" style="margin: 0;">Y</label>
+                      <input type="number" class="rc-input" id="rc-manualtool-y" value="0" step="0.001" style="width: 100px;">
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div class="rc-calibration-group">
+              <div class="rc-calibration-group" style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px;">
                 <!-- Machine Coordinates Display -->
                 <div class="rc-axis-card">
                   <div class="rc-axis-title">Machine Coordinates</div>
@@ -1989,7 +1995,8 @@ export async function onLoad(ctx) {
                     </label>
                   </div>
                 </div>
-
+              </div>
+              <div class="rc-right-panel" style="display: flex; flex-direction: column; gap: 16px;">
                 <div class="rc-calibration-group">
                   <div class="rc-form-group">
                     <label class="rc-form-label" style="text-align: center;">TLS Settings</label>
@@ -2016,8 +2023,7 @@ export async function onLoad(ctx) {
                     </div>
                   </div>
                 </div>
-              </div>
-              <div class="rc-right-panel" style="display: flex; flex-direction: column;">
+
                 <div class="rc-calibration-group" id="rc-probe-settings-card" style="flex: 1; display: flex; flex-direction: column;">
                   <div class="rc-form-group" style="display: flex; flex-direction: column; flex: 1;">
                     <div class="rc-form-group-horizontal" style="margin-bottom: 12px;">
@@ -2030,11 +2036,11 @@ export async function onLoad(ctx) {
                     <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 8px; flex: 1; display: flex; flex-direction: column;">
                       <div style="display: flex; flex-direction: column; flex: 1;">
                         <label class="rc-form-label" style="text-align: left;">Load Probe G-code</label>
-                        <div id="rc-probe-load-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px;"></div>
+                        <div id="rc-probe-load-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 80px;"></div>
                       </div>
                       <div style="display: flex; flex-direction: column; flex: 1;">
                         <label class="rc-form-label" style="text-align: left;">Unload Probe G-code</label>
-                        <div id="rc-probe-unload-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px;"></div>
+                        <div id="rc-probe-unload-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 80px;"></div>
                       </div>
                     </div>
                   </div>
