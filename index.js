@@ -130,13 +130,14 @@ const buildInitialConfig = (raw = {}) => {
     seekFeedrate: toFiniteNumber(raw.seekFeedrate, 500),
     toolSensor: raw.toolSensor ?? 'Probe/TLS',
 
-    // Cover Commands (Premium only)
-    coverCloseCmd: raw.coverCloseCmd ?? '',
-    coverOpenCmd: raw.coverOpenCmd ?? '',
-
     // Probe Tool Commands (Tool 99)
     probeLoadGcode: raw.probeLoadGcode ?? '',
     probeUnloadGcode: raw.probeUnloadGcode ?? '',
+
+    // Tool Change Events
+    preToolChangeGcode: raw.preToolChangeGcode ?? '',
+    postToolChangeGcode: raw.postToolChangeGcode ?? '',
+    abortEventGcode: raw.abortEventGcode ?? '',
 
     // Aux Output Settings (-1 = disabled, 0+ = M64 P{n}, 'M7' or 'M8' for coolant)
     tlsAuxOutput: raw.tlsAuxOutput === 'M7' || raw.tlsAuxOutput === 'M8'
@@ -313,20 +314,13 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }
 function createToolLengthSetProgram(settings, toolOffsets = { x: 0, y: 0, z: 0 }) {
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
-  // Cover commands (Premium model only, and only if not empty)
-  const isPremium = settings.model === 'Premium';
-  const coverOpenCmd = isPremium && settings.coverOpenCmd && settings.coverOpenCmd.trim() !== '' ? settings.coverOpenCmd.trim() : '';
-  const coverCloseCmd = isPremium && settings.coverCloseCmd && settings.coverCloseCmd.trim() !== '' ? settings.coverCloseCmd.trim() : '';
-
   const gcode = `
     (Start of Tool Length Setter)
     #<return_units> = [20 + #<_metric>]
     G21
-    ${coverOpenCmd}
     ${tlsRoutine}
     G53 G0 Z${settings.zSafe}
     G4 P0
-    ${coverCloseCmd}
     G[#<return_units>]
     (End of Tool Length Setter)
   `.trim();
@@ -406,21 +400,14 @@ async function handleHomeCommand(commands, context, settings, ctx) {
   const homeCommand = commands[homeIndex];
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
-  // Cover commands (Premium model only, and only if not empty)
-  const isPremium = settings.model === 'Premium';
-  const coverOpenCmd = isPremium && settings.coverOpenCmd && settings.coverOpenCmd.trim() !== '' ? settings.coverOpenCmd.trim() : '';
-  const coverCloseCmd = isPremium && settings.coverCloseCmd && settings.coverCloseCmd.trim() !== '' ? settings.coverCloseCmd.trim() : '';
-
   const gcode = `
     $H
     #<return_units> = [20 + #<_metric>]
     o100 IF [[#<_tool_offset> EQ 0] AND [#<_current_tool> NE 0]]
       G21
-      ${coverOpenCmd}
       ${tlsRoutine}
       G53 G0 Z${settings.zSafe}
       G4 P0
-      ${coverCloseCmd}
       G53 G0 X0 Y0
     o100 ENDIF
     G[#<return_units>]
@@ -749,10 +736,9 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
   const unloadSection = buildUnloadTool(settings, currentTool, sourcePos);
   const loadSection = buildLoadTool(settings, toolNumber, targetPos, tlsRoutine);
 
-  // Cover commands (Premium model only, and only if not empty)
-  const isPremium = settings.model === 'Premium';
-  const coverOpenCmd = isPremium && settings.coverOpenCmd && settings.coverOpenCmd.trim() !== '' ? settings.coverOpenCmd.trim() : '';
-  const coverCloseCmd = isPremium && settings.coverCloseCmd && settings.coverCloseCmd.trim() !== '' ? settings.coverCloseCmd.trim() : '';
+  // Tool change event commands
+  const preToolChangeCmd = settings.preToolChangeGcode?.trim() || '';
+  const postToolChangeCmd = settings.postToolChangeGcode?.trim() || '';
 
   // Assemble complete program
   const gcode = `
@@ -760,13 +746,13 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
     #<return_units> = [20 + #<_metric>]
     G21
     M5
-    ${coverOpenCmd}
+    ${preToolChangeCmd}
     ${atcStartDelaySection}
     ${unloadSection}
     ${loadSection}
     G53 G0 Z${settings.zSafe}
     G4 P0
-    ${coverCloseCmd}
+    ${postToolChangeCmd}
     G[#<return_units>]
     (End of RapidChangeATC Plugin Sequence)
   `.trim();
@@ -776,7 +762,9 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
 }
 
 // Show safety warning dialog
-function showSafetyWarningDialog(ctx, title, message, continueLabel) {
+function showSafetyWarningDialog(ctx, title, message, continueLabel, abortEventGcode = '') {
+  const abortGcodeLines = abortEventGcode ? abortEventGcode.trim().split('\\n').filter(line => line.trim()) : [];
+  const abortGcodeJson = JSON.stringify(abortGcodeLines);
   ctx.showModal(
     /* html */ `
       <style>
@@ -864,17 +852,30 @@ function showSafetyWarningDialog(ctx, title, message, continueLabel) {
         (function() {
           const abortBtn = document.getElementById('rcs-abort-btn');
           const continueBtn = document.getElementById('rcs-continue-btn');
+          const abortGcodeLines = ${abortGcodeJson};
 
           abortBtn.addEventListener('click', function() {
             if (abortBtn.disabled) return;
             abortBtn.disabled = true;
             continueBtn.disabled = true;
 
+            // First send soft reset to stop any movement
             window.postMessage({
               type: 'send-command',
               command: '\\x18',
               displayCommand: '\\x18 (Soft Reset)'
             }, '*');
+
+            // Execute abort event G-code if configured
+            if (abortGcodeLines.length > 0) {
+              abortGcodeLines.forEach(function(line) {
+                window.postMessage({
+                  type: 'send-command',
+                  command: line,
+                  displayCommand: line
+                }, '*');
+              });
+            }
 
             window.postMessage({
               type: 'send-command',
@@ -983,7 +984,8 @@ export async function onLoad(ctx) {
       if (upperData.includes('[MSG') && upperData.includes('PLUGIN_RAPIDCHANGEATC:')) {
         for (const [code, config] of Object.entries(MESSAGE_MAP)) {
           if (upperData.includes(code)) {
-            showSafetyWarningDialog(ctx, config.title, config.message, config.continueLabel);
+            const settings = buildInitialConfig(ctx.getSettings() || {});
+            showSafetyWarningDialog(ctx, config.title, config.message, config.continueLabel, settings.abortEventGcode);
             break;
           }
         }
@@ -1714,19 +1716,6 @@ export async function onLoad(ctx) {
           display: block;
         }
 
-        .rc-cover-tooltip {
-          visibility: hidden;
-          opacity: 0;
-          width: 300px;
-          margin-left: -150px;
-          pointer-events: none;
-        }
-
-        .rc-tooltip:hover .rc-cover-tooltip.show {
-          visibility: visible;
-          opacity: 1;
-        }
-
         .rc-probe-led {
           width: 18px;
           height: 18px;
@@ -1749,6 +1738,9 @@ export async function onLoad(ctx) {
           </button>
           <button class="rc-tab" data-tab="advanced">
             <span class="rc-tab-label">Advance</span>
+          </button>
+          <button class="rc-tab" data-tab="events">
+            <span class="rc-tab-label">Events</span>
           </button>
         </div>
 
@@ -1998,22 +1990,6 @@ export async function onLoad(ctx) {
                   </div>
                 </div>
 
-                <div class="rc-calibration-group" id="rc-cover-settings-card">
-                  <div class="rc-form-group">
-                    <label class="rc-form-label" style="text-align: center;">Cover Settings</label>
-                    <div class="rc-form-group-horizontal">
-                      <label class="rc-form-label">Close Command</label>
-                      <input type="text" class="rc-input" id="rc-cover-close-cmd" value="">
-                    </div>
-
-                    <div class="rc-form-group-horizontal">
-                      <label class="rc-form-label">Open Command</label>
-                      <input type="text" class="rc-input" id="rc-cover-open-cmd" value="">
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="rc-right-panel">
                 <div class="rc-calibration-group">
                   <div class="rc-form-group">
                     <label class="rc-form-label" style="text-align: center;">TLS Settings</label>
@@ -2040,9 +2016,10 @@ export async function onLoad(ctx) {
                     </div>
                   </div>
                 </div>
-
-                <div class="rc-calibration-group" id="rc-probe-settings-card">
-                  <div class="rc-form-group" style="display: flex; flex-direction: column;">
+              </div>
+              <div class="rc-right-panel" style="display: flex; flex-direction: column;">
+                <div class="rc-calibration-group" id="rc-probe-settings-card" style="flex: 1; display: flex; flex-direction: column;">
+                  <div class="rc-form-group" style="display: flex; flex-direction: column; flex: 1;">
                     <div class="rc-form-group-horizontal" style="margin-bottom: 12px;">
                       <label class="rc-form-label" title="Enable probe tool (T99) in the main app">Enable Probe Tool</label>
                       <label class="toggle-switch">
@@ -2050,17 +2027,50 @@ export async function onLoad(ctx) {
                         <span class="toggle-slider"></span>
                       </label>
                     </div>
-                    <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 8px;">
-                      <div style="display: flex; flex-direction: column;">
+                    <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 8px; flex: 1; display: flex; flex-direction: column;">
+                      <div style="display: flex; flex-direction: column; flex: 1;">
                         <label class="rc-form-label" style="text-align: left;">Load Probe G-code</label>
-                        <div id="rc-probe-load-gcode-editor" class="rc-monaco-editor"></div>
+                        <div id="rc-probe-load-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px;"></div>
                       </div>
-                      <div style="display: flex; flex-direction: column;">
+                      <div style="display: flex; flex-direction: column; flex: 1;">
                         <label class="rc-form-label" style="text-align: left;">Unload Probe G-code</label>
-                        <div id="rc-probe-unload-gcode-editor" class="rc-monaco-editor"></div>
+                        <div id="rc-probe-unload-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px;"></div>
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Events Tab -->
+          <div class="rc-tab-content" id="rc-tab-events">
+            <div style="display: flex; flex-direction: column; gap: 20px; padding: 20px; width: 100%; height: 100%; box-sizing: border-box;">
+              <div class="rc-calibration-group" style="width: 100%; flex: 1; display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; flex: 1;">
+                  <label class="rc-form-label" style="text-align: left; font-size: 14px;">Pre Tool Change Event</label>
+                  <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary, #888);">
+                    G-code commands to execute before each tool change (M6) (e.g., turn off coolant, open ATC cover).
+                  </p>
+                  <div id="rc-pre-tool-change-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px; width: 100%;"></div>
+                </div>
+              </div>
+              <div class="rc-calibration-group" style="width: 100%; flex: 1; display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; flex: 1;">
+                  <label class="rc-form-label" style="text-align: left; font-size: 14px;">Post Tool Change Event</label>
+                  <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary, #888);">
+                    G-code commands to execute after each tool change (M6) completes (e.g., close ATC cover, restore coolant).
+                  </p>
+                  <div id="rc-post-tool-change-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px; width: 100%;"></div>
+                </div>
+              </div>
+              <div class="rc-calibration-group" style="width: 100%; flex: 1; display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; flex: 1;">
+                  <label class="rc-form-label" style="text-align: left; font-size: 14px;">Abort Event</label>
+                  <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary, #888);">
+                    G-code commands to execute when tool change is aborted (e.g., close ATC cover, turn off spindle).
+                  </p>
+                  <div id="rc-abort-event-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px; width: 100%;"></div>
                 </div>
               </div>
             </div>
@@ -2083,6 +2093,9 @@ export async function onLoad(ctx) {
           // Monaco editor references
           let probeLoadEditor = null;
           let probeUnloadEditor = null;
+          let preToolChangeEditor = null;
+          let postToolChangeEditor = null;
+          let abortEventEditor = null;
 
           // Detect theme
           const isLightTheme = () => document.body.classList.contains('theme-light');
@@ -2136,6 +2149,33 @@ export async function onLoad(ctx) {
               probeUnloadEditor = monaco.editor.create(unloadContainer, {
                 ...editorOptions,
                 value: initialConfig.probeUnloadGcode || ''
+              });
+            }
+
+            // Create Pre Tool Change editor
+            const preToolChangeContainer = document.getElementById('rc-pre-tool-change-editor');
+            if (preToolChangeContainer) {
+              preToolChangeEditor = monaco.editor.create(preToolChangeContainer, {
+                ...editorOptions,
+                value: initialConfig.preToolChangeGcode || ''
+              });
+            }
+
+            // Create Post Tool Change editor
+            const postToolChangeContainer = document.getElementById('rc-post-tool-change-editor');
+            if (postToolChangeContainer) {
+              postToolChangeEditor = monaco.editor.create(postToolChangeContainer, {
+                ...editorOptions,
+                value: initialConfig.postToolChangeGcode || ''
+              });
+            }
+
+            // Create Abort Event editor
+            const abortEventContainer = document.getElementById('rc-abort-event-editor');
+            if (abortEventContainer) {
+              abortEventEditor = monaco.editor.create(abortEventContainer, {
+                ...editorOptions,
+                value: initialConfig.abortEventGcode || ''
               });
             }
 
@@ -2372,33 +2412,7 @@ export async function onLoad(ctx) {
               toolSensorInput.value = toolSensorValue;
             }
 
-            const coverCloseCmdInput = getInput('rc-cover-close-cmd');
-            if (coverCloseCmdInput) {
-              coverCloseCmdInput.value = initialConfig.coverCloseCmd ?? '';
-            }
-
-            const coverOpenCmdInput = getInput('rc-cover-open-cmd');
-            if (coverOpenCmdInput) {
-              coverOpenCmdInput.value = initialConfig.coverOpenCmd ?? '';
-            }
-
             // Monaco editors are initialized with values in initMonacoEditors()
-          };
-
-          // Function to update cover command inputs based on model selection
-          const updateCoverCommandsState = () => {
-            const modelSelect = getInput('rc-model-select');
-            const coverSettingsCard = document.getElementById('rc-cover-settings-card');
-
-            if (!modelSelect || !coverSettingsCard) return;
-
-            const isPremium = modelSelect.value === 'Premium';
-
-            if (isPremium) {
-              coverSettingsCard.classList.remove('disabled');
-            } else {
-              coverSettingsCard.classList.add('disabled');
-            }
           };
 
           // Function to update probe G-code fields based on Add Probe checkbox
@@ -2581,8 +2595,6 @@ export async function onLoad(ctx) {
             const seekFeedrateInput = getInput('rc-seek-feedrate');
             const tlsAuxOutputSelect = getInput('rc-tls-aux-output');
             const toolSensorInput = getInput('rc-tool-sensor');
-            const coverCloseCmdInput = getInput('rc-cover-close-cmd');
-            const coverOpenCmdInput = getInput('rc-cover-open-cmd');
 
             return {
               colletSize: colletSelect ? colletSelect.value : null,
@@ -2612,10 +2624,11 @@ export async function onLoad(ctx) {
                 return parseInt(val) || -1;
               })(),
               toolSensor: toolSensorInput ? toolSensorInput.value : '_toolsetter_state',
-              coverCloseCmd: coverCloseCmdInput ? coverCloseCmdInput.value : '',
-              coverOpenCmd: coverOpenCmdInput ? coverOpenCmdInput.value : '',
               probeLoadGcode: probeLoadEditor ? probeLoadEditor.getValue() : '',
               probeUnloadGcode: probeUnloadEditor ? probeUnloadEditor.getValue() : '',
+              preToolChangeGcode: preToolChangeEditor ? preToolChangeEditor.getValue() : '',
+              postToolChangeGcode: postToolChangeEditor ? postToolChangeEditor.getValue() : '',
+              abortEventGcode: abortEventEditor ? abortEventEditor.getValue() : '',
               pocket1: {
                 x: pocket1X ? getParseFloat(pocket1X.value) : null,
                 y: pocket1Y ? getParseFloat(pocket1Y.value) : null
@@ -2863,7 +2876,6 @@ export async function onLoad(ctx) {
           };
 
           applyInitialSettings();
-          updateCoverCommandsState();
           updateProbeGcodeState();
           populateAuxOutputs();
 
@@ -2895,12 +2907,6 @@ export async function onLoad(ctx) {
                 autoDetectTooltip.classList.remove('show');
               }
             });
-          }
-
-          // Add event listener for model changes
-          const modelSelect = getInput('rc-model-select');
-          if (modelSelect) {
-            modelSelect.addEventListener('change', updateCoverCommandsState);
           }
 
           // Add event listener for Add Probe checkbox changes
