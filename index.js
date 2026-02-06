@@ -314,14 +314,20 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }
 function createToolLengthSetProgram(settings, toolOffsets = { x: 0, y: 0, z: 0 }) {
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
+  // Pre/Post event commands (same as M6 tool change)
+  const preToolChangeCmd = settings.preToolChangeGcode?.trim() || '';
+  const postToolChangeCmd = settings.postToolChangeGcode?.trim() || '';
+
   const gcode = `
     (Start of Tool Length Setter)
+    ${preToolChangeCmd}
     #<return_units> = [20 + #<_metric>]
     G21
     ${tlsRoutine}
     G53 G0 Z${settings.zSafe}
     G4 P0
     G[#<return_units>]
+    ${postToolChangeCmd}
     (End of Tool Length Setter)
   `.trim();
 
@@ -400,15 +406,21 @@ async function handleHomeCommand(commands, context, settings, ctx) {
   const homeCommand = commands[homeIndex];
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
+  // Pre/Post event commands (only run if TLS runs)
+  const preToolChangeCmd = settings.preToolChangeGcode?.trim() || '';
+  const postToolChangeCmd = settings.postToolChangeGcode?.trim() || '';
+
   const gcode = `
     $H
     #<return_units> = [20 + #<_metric>]
     o100 IF [[#<_tool_offset> EQ 0] AND [#<_current_tool> NE 0]]
+      ${preToolChangeCmd}
       G21
       ${tlsRoutine}
       G53 G0 Z${settings.zSafe}
       G4 P0
       G53 G0 X0 Y0
+      ${postToolChangeCmd}
     o100 ENDIF
     G[#<return_units>]
   `.trim();
