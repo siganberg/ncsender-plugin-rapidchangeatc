@@ -1,5 +1,6 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Add multi-platform support with versioned platform requirements (v1, pro-v1, pro-v2)
-- Add V2 manifest entries for commands, configUi, events, permissions, toolMenu, and messages
+- Add config UI dialog for V2
+- Refactor command processing into standalone module
+- Refactor entry point as thin wrapper for V1/V2 compatibility
