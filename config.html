@@ -1,0 +1,1880 @@
+<style>
+  .rc-dialog-wrapper {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    width: 850px;
+  }
+
+  .rc-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+    padding: var(--gap-xs) var(--gap-md) 0 var(--gap-md);
+    gap: 2px;
+    border-left: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .rc-tab {
+    all: unset;
+    display: flex;
+    align-items: center;
+    gap: var(--gap-xs);
+    padding: var(--gap-sm) var(--gap-md);
+    background: transparent !important;
+    border: none !important;
+    border-radius: var(--radius-small) var(--radius-small) 0 0 !important;
+    color: var(--color-text-secondary) !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-top: var(--gap-xs);
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  .rc-tab:hover {
+    background: var(--color-surface) !important;
+    color: var(--color-text-primary);
+    transform: translateY(-1px);
+    filter: none !important;
+  }
+
+  .rc-tab.active {
+    background: var(--color-surface) !important;
+    color: var(--color-text-primary) !important;
+    box-shadow: var(--shadow-elevated);
+    border-bottom: 2px solid var(--color-accent) !important;
+    filter: none !important;
+  }
+
+  .rc-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--gradient-accent);
+    border-radius: 2px 2px 0 0;
+  }
+
+  .rc-tab:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .rc-tab-label {
+    font-weight: 600;
+  }
+
+  .rc-tab-content {
+    display: none;
+    flex: 1;
+    height: 100%;
+  }
+
+  .rc-tab-content.active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rc-content {
+    overflow-y: auto;
+    padding: 30px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    border-left: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    height: 690px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rc-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    max-width: 100%;
+    overflow-x: hidden;
+    flex: 1;
+  }
+
+  .rc-left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .rc-right-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .rc-axis-card,
+  .rc-calibration-group {
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    padding: 12px 16px;
+  }
+
+  .rc-calibration-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .rc-left-panel .rc-calibration-group {
+    padding: 18px 20px;
+    gap: 16px;
+  }
+
+  .rc-left-panel .rc-calibration-group:last-child,
+  .rc-right-panel .rc-calibration-group:last-child {
+    flex: 1;
+  }
+
+  .rc-right-panel .rc-calibration-group:first-child {
+    min-height: 140px;
+  }
+
+  .rc-calibration-group.disabled {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .rc-calibration-group.disabled::after {
+    content: 'Select Premium model to enable';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--color-surface);
+    padding: 8px 16px;
+    border-radius: var(--radius-medium);
+    border: 2px solid var(--color-border);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    z-index: 1;
+  }
+
+  .rc-axis-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .rc-axis-values {
+    display: flex;
+    justify-content: space-around;
+    gap: 16px;
+  }
+
+  .rc-axis-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .rc-axis-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+  }
+
+  .rc-axis-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-accent);
+  }
+
+  .rc-form-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .rc-form-row-wide {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .rc-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .rc-form-group-horizontal {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .rc-form-group-horizontal .rc-form-label {
+    flex-shrink: 0;
+    max-width: 50%;
+  }
+
+  .rc-form-group-horizontal .rc-input {
+    width: 100px;
+  }
+
+  .rc-form-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .rc-select,
+  .rc-input {
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+    text-align: right;
+  }
+
+  .rc-select:focus,
+  .rc-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+
+  .rc-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+  }
+
+  .rc-textarea {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .rc-monaco-editor {
+    width: 100%;
+    height: 170px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    overflow: hidden;
+  }
+
+  .rc-monaco-editor.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .rc-form-group-vertical {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rc-select {
+    text-align-last: right;
+  }
+
+  .rc-calibration-group nc-step-control {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    transform: scale(0.95);
+  }
+
+  .rc-right-panel nc-step-control {
+    max-width: 200px;
+    margin: 0 auto;
+  }
+
+  .rc-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+  }
+
+  .rc-toggle-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 50px;
+    height: 28px;
+  }
+
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 28px;
+  }
+
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+
+  input:checked + .toggle-slider {
+    background-color: var(--color-accent, #4a90e2);
+  }
+
+  input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+  }
+
+  .help-text {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+
+  .rc-slider-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    padding: 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .rc-slider-option {
+    position: relative;
+    padding: 6px 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    transition: color 0.2s ease;
+    z-index: 1;
+  }
+
+  .rc-slider-option.active {
+    color: var(--color-text-primary);
+  }
+
+  .rc-slider-indicator {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    background: var(--color-accent);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    z-index: 0;
+  }
+
+  .rc-coordinate-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 8px;
+    align-items: center;
+  }
+
+  .rc-coordinate-group .rc-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .rc-coord-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rc-coord-input-wrapper .rc-coord-label-inline {
+    flex-shrink: 0;
+  }
+
+  .rc-coord-input-wrapper .rc-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rc-coord-label-inline {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  .rc-button {
+    border-radius: var(--radius-small);
+    border: 1px solid var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-surface);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+  }
+
+  .rc-button-group {
+    display: inline-flex;
+  }
+
+  .rc-button-group .rc-button {
+    padding: 6px 12px !important;
+    margin: 0 !important;
+  }
+
+  .rc-button-group .rc-button-group-left {
+    border-radius: var(--radius-small) 0 0 var(--radius-small) !important;
+  }
+
+  .rc-button-group .rc-button-group-right {
+    border-radius: 0 var(--radius-small) var(--radius-small) 0 !important;
+    border-left: 1px solid rgba(0, 0, 0, 0.2) !important;
+    padding: 6px 10px !important;
+  }
+
+  .rc-button-grab {
+    padding: 6px 16px !important;
+  }
+
+  .rc-button-group .rc-button-grab {
+    padding: 6px 12px !important;
+  }
+
+  .rc-button-auto-calibrate {
+    width: 200px;
+    padding: 10px 16px;
+    margin: 0 auto;
+  }
+
+  .rc-button-group .rc-button-auto-calibrate {
+    width: auto !important;
+    padding: 6px 10px !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border-left: 1px solid rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .rc-button:hover {
+    filter: brightness(0.95);
+  }
+
+  .rc-button:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .rc-button.rc-button-busy,
+  .rc-button:disabled {
+    filter: none;
+    opacity: 0.7;
+    cursor: progress;
+  }
+
+  .rc-instructions {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 5px !important;
+    margin-top: 5px !important;
+  }
+
+  .rc-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 30px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+    position: relative;
+  }
+
+  .rc-button-saved {
+    box-shadow: 0 0 20px var(--color-accent), 0 0 40px var(--color-accent);
+    animation: glowPulse 0.5s ease-in-out infinite;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 20px var(--color-accent); }
+    50% { box-shadow: 0 0 30px var(--color-accent), 0 0 50px var(--color-accent); }
+  }
+
+  .rc-button-secondary {
+    background: var(--color-surface-muted);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+  }
+
+  .rc-button-secondary:hover {
+    background: var(--color-surface);
+    filter: none;
+  }
+
+  .rc-tooltip {
+    position: relative;
+    display: inline-block;
+  }
+
+  .rc-tooltip .rc-tooltip-text {
+    visibility: hidden;
+    width: 450px;
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    text-align: left;
+    border-radius: var(--radius-medium);
+    padding: 14px 18px;
+    position: absolute;
+    z-index: 1000;
+    top: 125%;
+    left: 50%;
+    margin-left: -225px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-elevated);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .rc-tooltip .rc-tooltip-text::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent var(--color-surface) transparent;
+  }
+
+  .rc-tooltip:hover .rc-tooltip-text {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .rc-tooltip-popup {
+    display: none;
+    position: fixed;
+    width: 450px;
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    text-align: left;
+    border-radius: var(--radius-medium);
+    padding: 14px 18px;
+    z-index: 10000;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-elevated);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .rc-tooltip-popup.show {
+    display: block;
+  }
+
+  .rc-probe-led {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #28a745;
+    box-shadow: 0 0 12px rgba(40, 167, 69, 0.8);
+    transition: all 0.3s ease;
+  }
+
+  .rc-probe-led.rc-probe-led--on {
+    background: #ff0000;
+    box-shadow: 0 0 14px rgba(255, 0, 0, 0.9);
+  }
+</style>
+
+<div class="rc-dialog-wrapper">
+  <div class="rc-tabs">
+    <button class="rc-tab active" data-tab="basic">
+      <span class="rc-tab-label">Basic</span>
+    </button>
+    <button class="rc-tab" data-tab="advanced">
+      <span class="rc-tab-label">Advance</span>
+    </button>
+    <button class="rc-tab" data-tab="events">
+      <span class="rc-tab-label">Events</span>
+    </button>
+  </div>
+
+  <div class="rc-content">
+    <div class="rc-tab-content active" id="rc-tab-basic">
+      <div class="rc-container">
+        <!-- Left Panel: Form Controls -->
+        <div class="rc-left-panel">
+          <div class="rc-calibration-group" style="min-height: 180px;">
+            <label class="rc-form-label" style="text-align: center; margin-bottom: 8px;">Magazine Settings</label>
+            <div class="rc-form-row">
+              <div class="rc-form-group">
+                <label class="rc-form-label" style="text-align: center;">Collet Size</label>
+                <select class="rc-select" id="rc-collet-size">
+                  <option value="ER11" disabled>ER11</option>
+                  <option value="ER16">ER16</option>
+                  <option value="ER20" selected>ER20</option>
+                  <option value="ER25" disabled>ER25</option>
+                  <option value="ER32" disabled>ER32</option>
+                </select>
+              </div>
+
+              <div class="rc-form-group">
+                <label class="rc-form-label" style="text-align: center;">Pocket Size</label>
+                <select class="rc-select" id="rc-pockets">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6" selected>6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                </select>
+              </div>
+
+              <div class="rc-form-group">
+                <label class="rc-form-label" style="text-align: center;">Model</label>
+                <select class="rc-select" id="rc-model-select">
+                  <option value="Basic" disabled>Basic</option>
+                  <option value="Pro" selected>Pro</option>
+                  <option value="Premium">Premium</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 48px; justify-content: center; margin-top: 8px;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <label class="rc-form-label" style="margin: 0;">Orientation</label>
+                <div class="rc-slider-toggle" id="rc-orientation-toggle">
+                  <span class="rc-slider-option active" data-value="Y">Y</span>
+                  <span class="rc-slider-option" data-value="X">X</span>
+                  <div class="rc-slider-indicator"></div>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <label class="rc-form-label" title="Pocket 1 → 2" style="margin: 0;">Direction</label>
+                <div class="rc-slider-toggle" id="rc-direction-toggle">
+                  <span class="rc-slider-option active" data-value="Negative">-</span>
+                  <span class="rc-slider-option" data-value="Positive">+</span>
+                  <div class="rc-slider-indicator"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rc-calibration-group" style="min-height: 220px;">
+            <div class="rc-form-group">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+                <label class="rc-form-label" style="margin: 0;">Pocket 1</label>
+                <div class="rc-button-group">
+                  <button type="button" class="rc-button rc-button-grab rc-button-group-left" id="rc-pocket1-grab">Grab</button>
+                  <button type="button" class="rc-button rc-button-auto-calibrate" id="rc-auto-calibrate-btn">Auto Detect</button>
+                  <button type="button" class="rc-button rc-button-group-right" id="rc-auto-detect-help">?</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 13px; color: var(--color-text-secondary, #999);">IR</span>
+                  <span id="rc-probe-led" class="rc-probe-led"></span>
+                </div>
+                <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
+                  <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
+                </div>
+              </div>
+              <div style="display: flex; gap: 24px; justify-content: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-pocket1-x" style="margin: 0;">X</label>
+                  <input type="number" class="rc-input" id="rc-pocket1-x" value="0" step="0.001" style="width: 100px;">
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-pocket1-y" style="margin: 0;">Y</label>
+                  <input type="number" class="rc-input" id="rc-pocket1-y" value="0" step="0.001" style="width: 100px;">
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-zengagement" style="margin: 0;">Z</label>
+                  <input type="number" class="rc-input" id="rc-zengagement" value="-100" step="0.001" style="width: 100px;">
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 24px; justify-content: center; margin-top: 16px;">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <label class="rc-form-label" style="margin: 0;">Zone 1</label>
+                <input type="number" class="rc-input" id="rc-zone1" value="-27" step="0.001" style="width: 100px;">
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                <label class="rc-form-label" style="margin: 0;">Zone 2</label>
+                <input type="number" class="rc-input" id="rc-zone2" value="-22" step="0.001" style="width: 100px;">
+              </div>
+            </div>
+          </div>
+
+          <div class="rc-calibration-group">
+            <div class="rc-form-group">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
+                <label class="rc-form-label" style="margin: 0;">Tool Setter Coordinates</label>
+                <button type="button" class="rc-button rc-button-grab" id="rc-toolsetter-grab">Grab</button>
+              </div>
+              <div style="display: flex; gap: 24px; justify-content: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-toolsetter-x" style="margin: 0;">X</label>
+                  <input type="number" class="rc-input" id="rc-toolsetter-x" value="0" step="0.001" style="width: 100px;">
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-toolsetter-y" style="margin: 0;">Y</label>
+                  <input type="number" class="rc-input" id="rc-toolsetter-y" value="0" step="0.001" style="width: 100px;">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel: Jog Controls -->
+        <div class="rc-right-panel">
+          <div class="rc-calibration-group" style="min-height: 160px;">
+            <div class="rc-form-group">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px;">
+                <label class="rc-form-label" style="margin: 0;">Manual Tool Coordinates</label>
+                <button type="button" class="rc-button rc-button-grab" id="rc-manualtool-grab">Grab</button>
+              </div>
+              <div style="display: flex; gap: 24px; justify-content: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-manualtool-x" style="margin: 0;">X</label>
+                  <input type="number" class="rc-input" id="rc-manualtool-x" value="0" step="0.001" style="width: 100px;">
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                  <label class="rc-form-label" for="rc-manualtool-y" style="margin: 0;">Y</label>
+                  <input type="number" class="rc-input" id="rc-manualtool-y" value="0" step="0.001" style="width: 100px;">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rc-calibration-group" style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 20px;">
+            <!-- Machine Coordinates Display -->
+            <div class="rc-axis-card">
+              <div class="rc-axis-title">Machine Coordinates</div>
+              <div class="rc-axis-values">
+                <div class="rc-axis-item">
+                  <span class="rc-axis-label">X</span>
+                  <span class="rc-axis-value" id="rc-axis-x">0.000</span>
+                </div>
+                <div class="rc-axis-item">
+                  <span class="rc-axis-label">Y</span>
+                  <span class="rc-axis-value" id="rc-axis-y">0.000</span>
+                </div>
+                <div class="rc-axis-item">
+                  <span class="rc-axis-label">Z</span>
+                  <span class="rc-axis-value" id="rc-axis-z">0.000</span>
+                </div>
+              </div>
+            </div>
+
+            <nc-step-control></nc-step-control>
+            <nc-jog-control></nc-jog-control>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rc-tab-content" id="rc-tab-advanced">
+      <div class="rc-container">
+        <div class="rc-left-panel">
+          <div class="rc-calibration-group">
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Z-Retreat (mm)</label>
+              <input type="number" class="rc-input" id="rc-z-retreat" value="7" min="0" max="200" step="0.1">
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Pocket Distance (mm)</label>
+              <input type="number" class="rc-input" id="rc-pocket-distance" value="45" min="1" max="500" step="0.1">
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Tool Sensor/IR Port</label>
+              <select class="rc-select" id="rc-tool-sensor">
+                <option value="Probe/TLS" selected>Probe/TLS</option>
+                <option value="Aux P1">Aux P1</option>
+                <option value="Aux P2">Aux P2</option>
+                <option value="Aux P3">Aux P3</option>
+                <option value="Aux P4">Aux P4</option>
+                <option value="Aux P5">Aux P5</option>
+                <option value="Aux P6">Aux P6</option>
+              </select>
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Delay before ATC start</label>
+              <input type="number" class="rc-input" id="rc-atc-start-delay" value="0" min="0" max="10" step="1">
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Load RPM</label>
+              <input type="number" class="rc-input" id="rc-load-rpm" value="1200" min="500" max="2000" step="1">
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Unload RPM</label>
+              <input type="number" class="rc-input" id="rc-unload-rpm" value="1500" min="500" max="2000" step="1">
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Show Command</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="rc-show-macro-command">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label">Perform TLS after first HOME</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="rc-perform-tls-after-home">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label" title="Wait for spindle to reach its speed before unloading/loading bits">Spindle At-Speed</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="rc-spindle-at-speed">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="rc-right-panel" style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="rc-calibration-group">
+            <div class="rc-form-group">
+              <label class="rc-form-label" style="text-align: center;">TLS Settings</label>
+              <div class="rc-form-group-horizontal">
+                <label class="rc-form-label">Starting Z-Probe (mm)</label>
+                <input type="number" class="rc-input" id="rc-z-probe-start" value="-20" step="0.1">
+              </div>
+
+              <div class="rc-form-group-horizontal">
+                <label class="rc-form-label">Seek Distance (mm)</label>
+                <input type="number" class="rc-input" id="rc-seek-distance" value="50" min="1" max="200" step="0.1">
+              </div>
+
+              <div class="rc-form-group-horizontal">
+                <label class="rc-form-label">Seek Feedrate (mm/min)</label>
+                <input type="number" class="rc-input" id="rc-seek-feedrate" value="500" min="1" max="5000" step="1">
+              </div>
+
+              <div class="rc-form-group-horizontal">
+                <label class="rc-form-label">Switch Aux during TLS</label>
+                <select class="rc-select" id="rc-tls-aux-output" style="width: 100px;">
+                  <option value="-1">Disabled</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="rc-calibration-group" id="rc-probe-settings-card" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="rc-form-group" style="display: flex; flex-direction: column; flex: 1;">
+              <div class="rc-form-group-horizontal" style="margin-bottom: 12px;">
+                <label class="rc-form-label" title="Enable probe tool (T99) in the main app">Enable Probe Tool</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="rc-add-probe">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="rc-probe-gcode-fields" class="rc-form-group-vertical" style="gap: 8px; flex: 1; display: flex; flex-direction: column;">
+                <div style="display: flex; flex-direction: column; flex: 1;">
+                  <label class="rc-form-label" style="text-align: left;">Load Probe G-code</label>
+                  <div id="rc-probe-load-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 80px;"></div>
+                </div>
+                <div style="display: flex; flex-direction: column; flex: 1;">
+                  <label class="rc-form-label" style="text-align: left;">Unload Probe G-code</label>
+                  <div id="rc-probe-unload-gcode-editor" class="rc-monaco-editor" style="flex: 1; min-height: 80px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events Tab -->
+    <div class="rc-tab-content" id="rc-tab-events">
+      <div style="display: flex; flex-direction: column; gap: 20px; padding: 20px; width: 100%; height: 100%; box-sizing: border-box;">
+        <div class="rc-calibration-group" style="width: 100%; flex: 1; display: flex; flex-direction: column;">
+          <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; flex: 1;">
+            <label class="rc-form-label" style="text-align: left; font-size: 14px;">Pre Tool Change Event</label>
+            <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary, #888);">
+              G-code commands to execute before each tool change (M6) (e.g., turn off coolant, open ATC cover).
+            </p>
+            <div id="rc-pre-tool-change-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px; width: 100%;"></div>
+          </div>
+        </div>
+        <div class="rc-calibration-group" style="width: 100%; flex: 1; display: flex; flex-direction: column;">
+          <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; flex: 1;">
+            <label class="rc-form-label" style="text-align: left; font-size: 14px;">Post Tool Change Event</label>
+            <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary, #888);">
+              G-code commands to execute after each tool change (M6) completes (e.g., close ATC cover, restore coolant).
+            </p>
+            <div id="rc-post-tool-change-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px; width: 100%;"></div>
+          </div>
+        </div>
+        <div class="rc-calibration-group" style="width: 100%; flex: 1; display: flex; flex-direction: column;">
+          <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; flex: 1;">
+            <label class="rc-form-label" style="text-align: left; font-size: 14px;">Abort Event</label>
+            <p style="margin: 0; font-size: 12px; color: var(--color-text-secondary, #888);">
+              G-code commands to execute when tool change is aborted (e.g., close ATC cover, turn off spindle).
+            </p>
+            <div id="rc-abort-event-editor" class="rc-monaco-editor" style="flex: 1; min-height: 100px; width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rc-footer">
+    <button type="button" class="rc-button rc-button-secondary" id="rc-close-btn">Close</button>
+    <button type="button" class="rc-button" id="rc-save-btn">Save</button>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const POCKET_PREFIX = 'pocket1';
+    const TOOL_SETTER_PREFIX = 'toolsetter';
+    const MANUAL_TOOL_PREFIX = 'manualtool';
+    const FALLBACK_PORT = __SERVER_PORT__;
+    const initialConfig = __INITIAL_CONFIG__;
+
+    // G-code helpers (inlined for auto-calibrate, kept minimal)
+    function getSensorCheckCondition(toolSensor, checkValue, oNumber) {
+      var auxMatch = toolSensor.match(/Aux P(\d+)/i);
+      if (auxMatch) {
+        var portNumber = auxMatch[1];
+        if (checkValue === 0) {
+          return 'M66 P' + portNumber + ' L3 Q0.2\n o' + oNumber + ' IF [#5399 EQ -1]';
+        } else {
+          return 'M66 P' + portNumber + ' L3 Q0.2\n o' + oNumber + ' IF [#5399 NE -1]';
+        }
+      } else if (toolSensor === 'Probe/TLS') {
+        if (checkValue === 0) {
+          return 'o' + oNumber + ' IF [#<_probe_state> EQ 0 AND #<_toolsetter_state> EQ 0]';
+        } else {
+          return 'o' + oNumber + ' IF [#<_probe_state> EQ 1 OR #<_toolsetter_state> EQ 1]';
+        }
+      } else {
+        return 'o' + oNumber + ' IF [#<' + toolSensor + '> EQ ' + checkValue + ']';
+      }
+    }
+
+    function getSensorCheckClose(oNumber) {
+      return 'o' + oNumber + ' ENDIF';
+    }
+
+    function formatGCode(gcode) {
+      var lines = gcode.split('\n')
+        .map(function(line) { return line.trim(); })
+        .filter(function(line) { return line !== ''; });
+      var formatted = [];
+      var indentLevel = 0;
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var upperLine = line.toUpperCase();
+        var isOCode = upperLine.startsWith('O');
+        if (isOCode && (
+          upperLine.includes('ENDIF') ||
+          upperLine.includes('ENDWHILE') ||
+          upperLine.includes('ENDREPEAT') ||
+          upperLine.includes('ENDSUB') ||
+          upperLine.includes('ELSE')
+        )) {
+          indentLevel = Math.max(0, indentLevel - 1);
+        }
+        var indent = '  '.repeat(indentLevel);
+        formatted.push(indent + line);
+        if (isOCode && (
+          upperLine.includes(' IF ') ||
+          upperLine.includes(' WHILE ') ||
+          upperLine.includes(' DO ') ||
+          upperLine.includes('REPEAT') ||
+          upperLine.includes(' SUB')
+        )) {
+          indentLevel++;
+        }
+        if (isOCode && upperLine.includes('ELSE') && !upperLine.includes('ELSEIF')) {
+          indentLevel++;
+        }
+      }
+      return formatted;
+    }
+
+    // Monaco editor references
+    var probeLoadEditor = null;
+    var probeUnloadEditor = null;
+    var preToolChangeEditor = null;
+    var postToolChangeEditor = null;
+    var abortEventEditor = null;
+
+    var isLightTheme = function() { return document.body.classList.contains('theme-light'); };
+
+    function initMonacoEditors() {
+      if (!window.monaco) {
+        console.warn('[RapidChangeATC] Monaco not available, editors will not be initialized');
+        return;
+      }
+
+      var monaco = window.monaco;
+      var theme = isLightTheme() ? 'gcode-light' : 'gcode-dark';
+
+      var editorOptions = {
+        language: 'gcode',
+        theme: theme,
+        minimap: { enabled: false },
+        lineNumbers: 'on',
+        scrollBeyondLastLine: false,
+        wordWrap: 'on',
+        automaticLayout: true,
+        fontSize: 12,
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+        renderLineHighlight: 'none',
+        folding: false,
+        glyphMargin: false,
+        lineDecorationsWidth: 8,
+        lineNumbersMinChars: 2,
+        scrollbar: {
+          vertical: 'auto',
+          horizontal: 'hidden',
+          useShadows: false,
+          verticalScrollbarSize: 6
+        }
+      };
+
+      var loadContainer = document.getElementById('rc-probe-load-gcode-editor');
+      if (loadContainer) {
+        probeLoadEditor = monaco.editor.create(loadContainer, Object.assign({}, editorOptions, {
+          value: initialConfig.probeLoadGcode || ''
+        }));
+      }
+
+      var unloadContainer = document.getElementById('rc-probe-unload-gcode-editor');
+      if (unloadContainer) {
+        probeUnloadEditor = monaco.editor.create(unloadContainer, Object.assign({}, editorOptions, {
+          value: initialConfig.probeUnloadGcode || ''
+        }));
+      }
+
+      var preToolChangeContainer = document.getElementById('rc-pre-tool-change-editor');
+      if (preToolChangeContainer) {
+        preToolChangeEditor = monaco.editor.create(preToolChangeContainer, Object.assign({}, editorOptions, {
+          value: initialConfig.preToolChangeGcode || ''
+        }));
+      }
+
+      var postToolChangeContainer = document.getElementById('rc-post-tool-change-editor');
+      if (postToolChangeContainer) {
+        postToolChangeEditor = monaco.editor.create(postToolChangeContainer, Object.assign({}, editorOptions, {
+          value: initialConfig.postToolChangeGcode || ''
+        }));
+      }
+
+      var abortEventContainer = document.getElementById('rc-abort-event-editor');
+      if (abortEventContainer) {
+        abortEventEditor = monaco.editor.create(abortEventContainer, Object.assign({}, editorOptions, {
+          value: initialConfig.abortEventGcode || ''
+        }));
+      }
+
+      var themeObserver = new MutationObserver(function() {
+        var newTheme = isLightTheme() ? 'gcode-light' : 'gcode-dark';
+        monaco.editor.setTheme(newTheme);
+      });
+      themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMonacoEditors);
+    } else {
+      setTimeout(initMonacoEditors, 50);
+    }
+
+    // Tab switching logic
+    var tabs = document.querySelectorAll('.rc-tab');
+    var tabContents = document.querySelectorAll('.rc-tab-content');
+
+    tabs.forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        var targetTab = tab.getAttribute('data-tab');
+        tabs.forEach(function(t) { t.classList.remove('active'); });
+        tabContents.forEach(function(c) { c.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('rc-tab-' + targetTab).classList.add('active');
+      });
+    });
+
+    var resolveApiBaseUrl = function() {
+      if (window.ncSender && typeof window.ncSender.getApiBaseUrl === 'function') {
+        return window.ncSender.getApiBaseUrl(FALLBACK_PORT);
+      }
+      return '';
+    };
+
+    var BASE_URL = resolveApiBaseUrl();
+
+    var getInput = function(id) { return document.getElementById(id); };
+
+    var formatCoordinate = function(value) {
+      return Number.isFinite(value) ? value.toFixed(3) : '';
+    };
+
+    var parseCoordinateString = function(raw) {
+      if (typeof raw === 'string' && raw.length > 0) {
+        var parts = raw.split(',').map(function(part) { return Number.parseFloat(part.trim()); });
+        if (parts.length >= 2 && parts.every(Number.isFinite)) {
+          return { x: parts[0], y: parts[1], z: parts[2] };
+        }
+      }
+      if (Array.isArray(raw) && raw.length >= 2) {
+        var x = raw[0], y = raw[1], z = raw[2];
+        if ([x, y].every(Number.isFinite)) {
+          return { x: x, y: y, z: z };
+        }
+      }
+      if (raw && typeof raw === 'object') {
+        var ox = raw.x, oy = raw.y, oz = raw.z;
+        if ([ox, oy].every(Number.isFinite)) {
+          return { x: ox, y: oy, z: oz };
+        }
+      }
+      return null;
+    };
+
+    var extractCoordinatesFromPayload = function(payload) {
+      if (!payload || typeof payload !== 'object') {
+        return null;
+      }
+
+      var nestedKeys = ['machineState', 'lastStatus', 'statusReport'];
+      for (var i = 0; i < nestedKeys.length; i += 1) {
+        var key = nestedKeys[i];
+        if (payload[key] && typeof payload[key] === 'object') {
+          var nestedCoords = extractCoordinatesFromPayload(payload[key]);
+          if (nestedCoords) {
+            return nestedCoords;
+          }
+        }
+      }
+
+      var candidates = [
+        payload.machineCoords,
+        payload.MPos,
+        payload.MPOS,
+        payload.mpos,
+        payload.machinePosition
+      ];
+
+      for (var j = 0; j < candidates.length; j += 1) {
+        var coords = parseCoordinateString(candidates[j]);
+        if (coords) {
+          return coords;
+        }
+      }
+
+      return null;
+    };
+
+    var setCoordinateInputs = function(prefix, coords) {
+      if (!coords) return;
+      var xInput = getInput('rc-' + prefix + '-x');
+      var yInput = getInput('rc-' + prefix + '-y');
+
+      if (xInput) {
+        xInput.value = formatCoordinate(coords.x ?? Number.NaN);
+      }
+      if (yInput) {
+        yInput.value = formatCoordinate(coords.y ?? Number.NaN);
+      }
+    };
+
+    var applyInitialSettings = function() {
+      var colletSelect = getInput('rc-collet-size');
+      if (colletSelect && initialConfig.colletSize) {
+        colletSelect.value = initialConfig.colletSize;
+      }
+
+      var pocketsSelect = getInput('rc-pockets');
+      if (pocketsSelect && initialConfig.pockets) {
+        pocketsSelect.value = String(initialConfig.pockets);
+      }
+
+      var modelSelect = getInput('rc-model-select');
+      if (modelSelect && initialConfig.model) {
+        modelSelect.value = initialConfig.model;
+      }
+
+      setSliderValue('rc-orientation-toggle', initialConfig.orientation);
+      setSliderValue('rc-direction-toggle', initialConfig.direction);
+      setCoordinateInputs(POCKET_PREFIX, initialConfig.pocket1);
+      setCoordinateInputs(TOOL_SETTER_PREFIX, initialConfig.toolSetter);
+      setCoordinateInputs(MANUAL_TOOL_PREFIX, initialConfig.manualTool);
+
+      var atcStartDelayInput = getInput('rc-atc-start-delay');
+      if (atcStartDelayInput) {
+        atcStartDelayInput.value = String(initialConfig.atcStartDelay ?? 0);
+      }
+
+      var loadRpmInput = getInput('rc-load-rpm');
+      if (loadRpmInput) {
+        loadRpmInput.value = String(initialConfig.loadRpm ?? 1200);
+      }
+
+      var unloadRpmInput = getInput('rc-unload-rpm');
+      if (unloadRpmInput) {
+        unloadRpmInput.value = String(initialConfig.unloadRpm ?? 1500);
+      }
+
+      var zEngagementInput = getInput('rc-zengagement');
+      if (zEngagementInput) {
+        zEngagementInput.value = formatCoordinate(initialConfig.zEngagement ?? -50);
+      }
+
+      var zone1Input = getInput('rc-zone1');
+      if (zone1Input) {
+        zone1Input.value = formatCoordinate(initialConfig.zone1 ?? -27);
+      }
+
+      var zone2Input = getInput('rc-zone2');
+      if (zone2Input) {
+        zone2Input.value = formatCoordinate(initialConfig.zone2 ?? -22);
+      }
+
+      var showMacroCommandCheck = getInput('rc-show-macro-command');
+      if (showMacroCommandCheck) {
+        showMacroCommandCheck.checked = !!initialConfig.showMacroCommand;
+      }
+
+      var performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
+      if (performTlsAfterHomeCheck) {
+        performTlsAfterHomeCheck.checked = !!initialConfig.performTlsAfterHome;
+      }
+
+      var spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
+      if (spindleAtSpeedCheck) {
+        spindleAtSpeedCheck.checked = !!initialConfig.spindleAtSpeed;
+      }
+
+      var addProbeCheck = getInput('rc-add-probe');
+      if (addProbeCheck) {
+        addProbeCheck.checked = !!initialConfig.addProbe;
+      }
+
+      var zRetreatInput = getInput('rc-z-retreat');
+      if (zRetreatInput) {
+        zRetreatInput.value = String(initialConfig.zRetreat ?? 7);
+      }
+
+      var pocketDistanceInput = getInput('rc-pocket-distance');
+      if (pocketDistanceInput) {
+        pocketDistanceInput.value = String(initialConfig.pocketDistance ?? 45);
+      }
+
+      var zProbeStartInput = getInput('rc-z-probe-start');
+      if (zProbeStartInput) {
+        zProbeStartInput.value = String(initialConfig.zProbeStart ?? -20);
+      }
+
+      var seekDistanceInput = getInput('rc-seek-distance');
+      if (seekDistanceInput) {
+        seekDistanceInput.value = String(initialConfig.seekDistance ?? 50);
+      }
+
+      var seekFeedrateInput = getInput('rc-seek-feedrate');
+      if (seekFeedrateInput) {
+        seekFeedrateInput.value = String(initialConfig.seekFeedrate ?? 500);
+      }
+
+      var toolSensorInput = getInput('rc-tool-sensor');
+      if (toolSensorInput) {
+        var toolSensorValue = initialConfig.toolSensor ?? 'Probe/TLS';
+        var validOptions = ['Probe/TLS', 'Aux P1', 'Aux P2', 'Aux P3', 'Aux P4', 'Aux P5', 'Aux P6'];
+        if (!validOptions.includes(toolSensorValue)) {
+          toolSensorValue = 'Probe/TLS';
+        }
+        toolSensorInput.value = toolSensorValue;
+      }
+    };
+
+    var updateProbeGcodeState = function() {
+      var addProbeCheck = getInput('rc-add-probe');
+      var probeGcodeFields = document.getElementById('rc-probe-gcode-fields');
+      var loadEditorContainer = document.getElementById('rc-probe-load-gcode-editor');
+      var unloadEditorContainer = document.getElementById('rc-probe-unload-gcode-editor');
+
+      if (!addProbeCheck || !probeGcodeFields) return;
+
+      var isEnabled = addProbeCheck.checked;
+
+      if (isEnabled) {
+        probeGcodeFields.classList.remove('disabled');
+        if (loadEditorContainer) loadEditorContainer.classList.remove('disabled');
+        if (unloadEditorContainer) unloadEditorContainer.classList.remove('disabled');
+        if (probeLoadEditor) probeLoadEditor.updateOptions({ readOnly: false });
+        if (probeUnloadEditor) probeUnloadEditor.updateOptions({ readOnly: false });
+      } else {
+        probeGcodeFields.classList.add('disabled');
+        if (loadEditorContainer) loadEditorContainer.classList.add('disabled');
+        if (unloadEditorContainer) unloadEditorContainer.classList.add('disabled');
+        if (probeLoadEditor) probeLoadEditor.updateOptions({ readOnly: true });
+        if (probeUnloadEditor) probeUnloadEditor.updateOptions({ readOnly: true });
+      }
+    };
+
+    var notifyError = function(message) {
+      console.warn('[RapidChangeATC] ' + message);
+      window.alert(message);
+    };
+
+    var notifySuccess = function(message) {
+      // Success notifications handled by UI feedback
+    };
+
+    var grabCoordinates = async function(prefix) {
+      var axisX = document.getElementById('rc-axis-x');
+      var axisY = document.getElementById('rc-axis-y');
+      var axisZ = document.getElementById('rc-axis-z');
+
+      if (!axisX || !axisY || !axisZ) {
+        notifyError('Unable to read machine coordinates from display.');
+        return;
+      }
+
+      var coords = {
+        x: parseFloat(axisX.textContent),
+        y: parseFloat(axisY.textContent),
+        z: parseFloat(axisZ.textContent)
+      };
+
+      if (!Number.isFinite(coords.x) || !Number.isFinite(coords.y) || !Number.isFinite(coords.z)) {
+        notifyError('Invalid machine coordinates. Ensure the machine is connected.');
+        return;
+      }
+
+      setCoordinateInputs(prefix, coords);
+
+      if (prefix === POCKET_PREFIX) {
+        var zEngagementInput = getInput('rc-zengagement');
+        if (zEngagementInput) {
+          zEngagementInput.value = formatCoordinate(coords.z - 5);
+        }
+      }
+    };
+
+    var registerButton = function(prefix, buttonId) {
+      var button = getInput(buttonId);
+      if (!button) return;
+
+      button.addEventListener('click', function() {
+        if (button.disabled) {
+          return;
+        }
+
+        button.disabled = true;
+        button.classList.add('rc-button-busy');
+
+        grabCoordinates(prefix).finally(function() {
+          button.disabled = false;
+          button.classList.remove('rc-button-busy');
+        });
+      });
+    };
+
+    var initSliderToggle = function(toggleId) {
+      var toggle = document.getElementById(toggleId);
+      if (!toggle) return;
+
+      var options = toggle.querySelectorAll('.rc-slider-option');
+      var indicator = toggle.querySelector('.rc-slider-indicator');
+
+      var updateIndicator = function(activeOption) {
+        var rect = activeOption.getBoundingClientRect();
+        var toggleRect = toggle.getBoundingClientRect();
+        indicator.style.left = (activeOption.offsetLeft) + 'px';
+        indicator.style.width = rect.width + 'px';
+      };
+
+      options.forEach(function(option) {
+        option.addEventListener('click', function() {
+          options.forEach(function(opt) { opt.classList.remove('active'); });
+          option.classList.add('active');
+          updateIndicator(option);
+        });
+      });
+
+      var activeOption = toggle.querySelector('.rc-slider-option.active');
+      if (activeOption) {
+        setTimeout(function() { updateIndicator(activeOption); }, 0);
+      }
+    };
+
+    var getParseFloat = function(value) {
+      var parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    var getParseInt = function(value) {
+      var parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    var getSliderValue = function(toggleId) {
+      var toggle = document.getElementById(toggleId);
+      if (!toggle) return null;
+      var activeOption = toggle.querySelector('.rc-slider-option.active');
+      return activeOption ? activeOption.getAttribute('data-value') : null;
+    };
+
+    var setSliderValue = function(toggleId, value) {
+      var toggle = document.getElementById(toggleId);
+      if (!toggle || !value) return;
+
+      var options = toggle.querySelectorAll('.rc-slider-option');
+      var indicator = toggle.querySelector('.rc-slider-indicator');
+
+      options.forEach(function(option) {
+        if (option.getAttribute('data-value') === value) {
+          options.forEach(function(opt) { opt.classList.remove('active'); });
+          option.classList.add('active');
+
+          setTimeout(function() {
+            indicator.style.left = (option.offsetLeft) + 'px';
+            indicator.style.width = option.getBoundingClientRect().width + 'px';
+          }, 0);
+        }
+      });
+    };
+
+    var gatherFormData = function() {
+      var colletSelect = getInput('rc-collet-size');
+      var pocketsSelect = getInput('rc-pockets');
+      var modelSelect = getInput('rc-model-select');
+      var pocket1X = getInput('rc-pocket1-x');
+      var pocket1Y = getInput('rc-pocket1-y');
+      var toolSetterX = getInput('rc-toolsetter-x');
+      var toolSetterY = getInput('rc-toolsetter-y');
+      var manualToolX = getInput('rc-manualtool-x');
+      var manualToolY = getInput('rc-manualtool-y');
+      var atcStartDelayInput = getInput('rc-atc-start-delay');
+      var loadRpmInput = getInput('rc-load-rpm');
+      var unloadRpmInput = getInput('rc-unload-rpm');
+      var zEngagementInput = getInput('rc-zengagement');
+      var zone1Input = getInput('rc-zone1');
+      var zone2Input = getInput('rc-zone2');
+      var showMacroCommandCheck = getInput('rc-show-macro-command');
+      var performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
+      var spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
+      var addProbeCheck = getInput('rc-add-probe');
+      var zRetreatInput = getInput('rc-z-retreat');
+      var pocketDistanceInput = getInput('rc-pocket-distance');
+      var zProbeStartInput = getInput('rc-z-probe-start');
+      var seekDistanceInput = getInput('rc-seek-distance');
+      var seekFeedrateInput = getInput('rc-seek-feedrate');
+      var tlsAuxOutputSelect = getInput('rc-tls-aux-output');
+      var toolSensorInput = getInput('rc-tool-sensor');
+
+      return {
+        colletSize: colletSelect ? colletSelect.value : null,
+        pockets: pocketsSelect ? getParseInt(pocketsSelect.value) : null,
+        model: modelSelect ? modelSelect.value : null,
+        orientation: getSliderValue('rc-orientation-toggle'),
+        direction: getSliderValue('rc-direction-toggle'),
+        showMacroCommand: showMacroCommandCheck ? showMacroCommandCheck.checked : false,
+        performTlsAfterHome: performTlsAfterHomeCheck ? performTlsAfterHomeCheck.checked : false,
+        spindleAtSpeed: spindleAtSpeedCheck ? spindleAtSpeedCheck.checked : false,
+        addProbe: addProbeCheck ? addProbeCheck.checked : false,
+        atcStartDelay: atcStartDelayInput ? getParseInt(atcStartDelayInput.value) : 0,
+        loadRpm: loadRpmInput ? getParseInt(loadRpmInput.value) : 1200,
+        unloadRpm: unloadRpmInput ? getParseInt(unloadRpmInput.value) : 1500,
+        zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -50,
+        zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
+        zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
+        zRetreat: zRetreatInput ? getParseFloat(zRetreatInput.value) : 7,
+        pocketDistance: pocketDistanceInput ? getParseFloat(pocketDistanceInput.value) : 45,
+        zProbeStart: zProbeStartInput ? getParseFloat(zProbeStartInput.value) : -20,
+        seekDistance: seekDistanceInput ? getParseFloat(seekDistanceInput.value) : 50,
+        seekFeedrate: seekFeedrateInput ? getParseFloat(seekFeedrateInput.value) : 500,
+        tlsAuxOutput: (function() {
+          if (!tlsAuxOutputSelect) return -1;
+          var val = tlsAuxOutputSelect.value;
+          if (val === 'M7' || val === 'M8') return val;
+          return parseInt(val) || -1;
+        })(),
+        toolSensor: toolSensorInput ? toolSensorInput.value : '_toolsetter_state',
+        probeLoadGcode: probeLoadEditor ? probeLoadEditor.getValue() : '',
+        probeUnloadGcode: probeUnloadEditor ? probeUnloadEditor.getValue() : '',
+        preToolChangeGcode: preToolChangeEditor ? preToolChangeEditor.getValue() : '',
+        postToolChangeGcode: postToolChangeEditor ? postToolChangeEditor.getValue() : '',
+        abortEventGcode: abortEventEditor ? abortEventEditor.getValue() : '',
+        pocket1: {
+          x: pocket1X ? getParseFloat(pocket1X.value) : null,
+          y: pocket1Y ? getParseFloat(pocket1Y.value) : null
+        },
+        toolSetter: {
+          x: toolSetterX ? getParseFloat(toolSetterX.value) : null,
+          y: toolSetterY ? getParseFloat(toolSetterY.value) : null
+        },
+        manualTool: {
+          x: manualToolX ? getParseFloat(manualToolX.value) : null,
+          y: manualToolY ? getParseFloat(manualToolY.value) : null
+        }
+      };
+    };
+
+    var closeButton = getInput('rc-close-btn');
+    if (closeButton) {
+      closeButton.addEventListener('click', function() {
+        window.postMessage({ type: 'close-plugin-dialog' }, '*');
+      });
+    }
+
+    var saveButton = getInput('rc-save-btn');
+    if (saveButton) {
+      saveButton.addEventListener('click', async function() {
+        if (saveButton.disabled) {
+          return;
+        }
+
+        saveButton.disabled = true;
+        saveButton.classList.add('rc-button-busy');
+
+        var payload = gatherFormData();
+
+        try {
+          var pluginResponse = await fetch(BASE_URL + '/api/plugins/com.ncsender.rapidchangeatc/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!pluginResponse.ok) {
+            throw new Error('Failed to save plugin settings: ' + pluginResponse.status);
+          }
+
+          var toolCount = payload.pockets || 0;
+          var settingsResponse = await fetch(BASE_URL + '/api/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tool: {
+                count: toolCount,
+                source: 'com.ncsender.rapidchangeatc',
+                manual: true,
+                tls: true,
+                probe: payload.addProbe
+              }
+            })
+          });
+
+          if (!settingsResponse.ok) {
+            throw new Error('Failed to update tool.count setting: ' + settingsResponse.status);
+          }
+
+          saveButton.textContent = 'Saved';
+          saveButton.classList.add('rc-button-saved');
+          saveButton.classList.remove('rc-button-busy');
+          saveButton.disabled = false;
+
+          setTimeout(function() {
+            saveButton.textContent = 'Save';
+            saveButton.classList.remove('rc-button-saved');
+          }, 2000);
+        } catch (error) {
+          console.error('[RapidChangeATC] Failed to save settings:', error);
+          notifyError('Failed to save settings. Please try again.');
+          saveButton.disabled = false;
+          saveButton.classList.remove('rc-button-busy');
+        }
+      });
+    }
+
+    var autoCalibrateButton = getInput('rc-auto-calibrate-btn');
+    if (autoCalibrateButton) {
+      autoCalibrateButton.addEventListener('click', async function() {
+        if (autoCalibrateButton.disabled) {
+          return;
+        }
+
+        autoCalibrateButton.disabled = true;
+        autoCalibrateButton.classList.add('rc-button-busy');
+
+        await grabCoordinates(POCKET_PREFIX);
+
+        var toolSensorValue = (getInput('rc-tool-sensor') || {}).value || 'Probe/TLS';
+        var sensorCheckNotTriggered = getSensorCheckCondition(toolSensorValue, 0, 100);
+        var sensorCheckClose = getSensorCheckClose(100);
+
+        var gcode = '(If the IR sensor isn\'t triggered yet, move up first until it triggers. This is needed if the Z-engagement is set too low.)\n' +
+          sensorCheckNotTriggered + '\n' +
+          '  G38.2 G91 Z50 F200\n' +
+          sensorCheckClose + '\n' +
+          'G38.4 G91 Z50 F200\n' +
+          '$#=5063';
+
+        var AUTO_CALIBRATE_GCODE = formatGCode(gcode).join('\n');
+
+        try {
+          var response = await fetch(BASE_URL + '/api/send-command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              command: AUTO_CALIBRATE_GCODE,
+              meta: {
+                source: 'rapidchangeatc-autocalibrate'
+              }
+            })
+          });
+
+          if (!response.ok) {
+            var errorBody = await response.text();
+            throw new Error('Failed to send auto detect command: ' + response.status + ' - ' + errorBody);
+          }
+        } catch (error) {
+          console.error('[RapidChangeATC] Auto-calibrate failed:', error);
+        }
+
+        setTimeout(function() {
+          autoCalibrateButton.disabled = false;
+          autoCalibrateButton.classList.remove('rc-button-busy');
+        }, 2000);
+      });
+    }
+
+    // Listen for cnc-data messages (probe completion)
+    var handleCNCData = function(event) {
+      if (!event.data || event.data.type !== 'cnc-data') return;
+
+      var cncData = event.data.data;
+
+      if (typeof cncData === 'string' && cncData.includes('PARAM:5063')) {
+        var axisZ = document.getElementById('rc-axis-z');
+        if (!axisZ) {
+          console.error('[RapidChangeATC] Cannot find axis Z display');
+          return;
+        }
+
+        var machineZ = parseFloat(axisZ.textContent);
+        if (!Number.isFinite(machineZ)) {
+          console.error('[RapidChangeATC] Invalid machine Z value:', axisZ.textContent);
+          return;
+        }
+
+        var zone1 = machineZ - 3;
+        var zone2 = machineZ + 2;
+
+        var zone1Input = getInput('rc-zone1');
+        var zone2Input = getInput('rc-zone2');
+
+        if (zone1Input) {
+          zone1Input.value = zone1.toFixed(3);
+        }
+        if (zone2Input) {
+          zone2Input.value = zone2.toFixed(3);
+        }
+
+        notifySuccess('Zones calculated: Zone1=' + zone1.toFixed(3) + ', Zone2=' + zone2.toFixed(3));
+      }
+    };
+
+    window.addEventListener('message', handleCNCData);
+
+    var updateAxisDisplay = function(coords) {
+      if (!coords) return;
+
+      var axisX = document.getElementById('rc-axis-x');
+      var axisY = document.getElementById('rc-axis-y');
+      var axisZ = document.getElementById('rc-axis-z');
+
+      if (axisX && coords.x !== undefined) axisX.textContent = formatCoordinate(coords.x);
+      if (axisY && coords.y !== undefined) axisY.textContent = formatCoordinate(coords.y);
+      if (axisZ && coords.z !== undefined) axisZ.textContent = formatCoordinate(coords.z);
+    };
+
+    var handleServerStateUpdate = function(event) {
+      if (!event.data || event.data.type !== 'server-state-update') return;
+
+      var coords = extractCoordinatesFromPayload(event.data.state);
+      if (coords) {
+        updateAxisDisplay(coords);
+      }
+
+      var probeLed = document.getElementById('rc-probe-led');
+      if (probeLed && event.data.state && event.data.state.machineState) {
+        var pnString = event.data.state.machineState.Pn || '';
+        var isProbeActive = pnString.includes('P');
+        if (isProbeActive) {
+          probeLed.classList.add('rc-probe-led--on');
+        } else {
+          probeLed.classList.remove('rc-probe-led--on');
+        }
+      }
+    };
+
+    window.addEventListener('message', handleServerStateUpdate);
+
+    var populateAuxOutputs = async function() {
+      try {
+        var responses = await Promise.all([
+          fetch(BASE_URL + '/api/server-state'),
+          fetch(BASE_URL + '/api/settings')
+        ]);
+
+        var stateResponse = responses[0];
+        var settingsResponse = responses[1];
+
+        if (!stateResponse.ok) return;
+
+        var state = await stateResponse.json();
+        var settings = settingsResponse.ok ? await settingsResponse.json() : {};
+        var outputPins = (state.machineState && state.machineState.outputPins) || state.outputPins || 0;
+        var auxOutputsConfig = settings.auxOutputs || [];
+
+        var nameMap = {};
+        for (var k = 0; k < auxOutputsConfig.length; k++) {
+          var output = auxOutputsConfig[k];
+          if (output.on && output.name) {
+            nameMap[output.on.toUpperCase()] = output.name;
+          }
+        }
+
+        var select = getInput('rc-tls-aux-output');
+        if (!select) return;
+
+        var m8Option = document.createElement('option');
+        m8Option.value = 'M8';
+        m8Option.textContent = nameMap['M8'] || 'M8';
+        select.appendChild(m8Option);
+
+        var m7Option = document.createElement('option');
+        m7Option.value = 'M7';
+        m7Option.textContent = nameMap['M7'] || 'M7';
+        select.appendChild(m7Option);
+
+        for (var i = 0; i < outputPins; i++) {
+          var option = document.createElement('option');
+          var gcodeCmd = 'M64 P' + i;
+          option.value = i;
+          option.textContent = nameMap[gcodeCmd.toUpperCase()] || gcodeCmd;
+          select.appendChild(option);
+        }
+
+        select.value = initialConfig.tlsAuxOutput ?? -1;
+      } catch (error) {
+        console.error('[RapidChangeATC] Failed to populate aux outputs:', error);
+      }
+    };
+
+    applyInitialSettings();
+    updateProbeGcodeState();
+    populateAuxOutputs();
+
+    var autoDetectHelpIcon = document.getElementById('rc-auto-detect-help');
+    var autoDetectTooltip = document.getElementById('rc-auto-detect-tooltip');
+
+    if (autoDetectHelpIcon && autoDetectTooltip) {
+      autoDetectHelpIcon.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var isVisible = autoDetectTooltip.classList.contains('show');
+
+        if (!isVisible) {
+          var rect = autoDetectHelpIcon.getBoundingClientRect();
+          autoDetectTooltip.style.top = (rect.bottom + 8) + 'px';
+          autoDetectTooltip.style.left = (rect.left - 225 + 12) + 'px';
+          autoDetectTooltip.classList.add('show');
+        } else {
+          autoDetectTooltip.classList.remove('show');
+        }
+      });
+
+      document.addEventListener('click', function(e) {
+        if (autoDetectTooltip.classList.contains('show') &&
+            !autoDetectTooltip.contains(e.target) &&
+            e.target !== autoDetectHelpIcon) {
+          autoDetectTooltip.classList.remove('show');
+        }
+      });
+    }
+
+    var addProbeCheck = getInput('rc-add-probe');
+    if (addProbeCheck) {
+      addProbeCheck.addEventListener('change', updateProbeGcodeState);
+    }
+
+    registerButton(POCKET_PREFIX, 'rc-pocket1-grab');
+    registerButton(TOOL_SETTER_PREFIX, 'rc-toolsetter-grab');
+    registerButton(MANUAL_TOOL_PREFIX, 'rc-manualtool-grab');
+
+    initSliderToggle('rc-orientation-toggle');
+    initSliderToggle('rc-direction-toggle');
+
+    var colletSelect = getInput('rc-collet-size');
+    if (colletSelect) {
+      colletSelect.addEventListener('change', function() {
+        var newColletSize = colletSelect.value;
+        var loadRpmInput = getInput('rc-load-rpm');
+        var unloadRpmInput = getInput('rc-unload-rpm');
+        var zRetreatInput = getInput('rc-z-retreat');
+
+        if (!loadRpmInput || !unloadRpmInput) return;
+
+        var newLoadDefault = newColletSize === 'ER16' ? 1600 : 1200;
+        var newUnloadDefault = newColletSize === 'ER16' ? 2000 : 1500;
+        var newZRetreatDefault = newColletSize === 'ER16' ? 17 : 7;
+
+        loadRpmInput.value = String(newLoadDefault);
+        unloadRpmInput.value = String(newUnloadDefault);
+        if (zRetreatInput) {
+          zRetreatInput.value = String(newZRetreatDefault);
+        }
+      });
+    }
+  })();
+</script>
