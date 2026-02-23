@@ -4,10 +4,44 @@
   "version": "0.1.49",
   "minAppVersion": "0.3.111",
   "entry": "index.js",
+  "commands": "commands.js",
+  "configUi": "config.html",
   "author": "ncSender",
   "description": "Rapid tool change workflow helper for automatic tool changers.",
   "category": "tool-changer",
   "repository": "https://github.com/siganberg/ncsender-plugin-rapidchangeatc",
   "priority": 50,
-  "icon": "logo.png"
+  "icon": "logo.png",
+  "platforms": {
+    "v1": "0.3.111",
+    "pro-v1": "0.3.111",
+    "pro-v2": "2.0.0"
+  },
+  "events": ["onBeforeCommand"],
+  "permissions": ["gcode.modify"],
+  "toolMenu": [
+    { "id": "open-config", "label": "RapidChangeATC", "icon": "logo.png", "clientOnly": true }
+  ],
+  "messages": {
+    "FAILED_UNLOAD_TOOL": {
+      "title": "Unload Failed",
+      "message": "Failed to unload the bit. Please manually remove the bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "continueLabel": "Continue"
+    },
+    "FAILED_LOAD_TOOL": {
+      "title": "Load Failed",
+      "message": "Failed to load the bit. Please manually install the bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "continueLabel": "Continue"
+    },
+    "MANUAL_UNLOAD_TOOL": {
+      "title": "Manual Unload",
+      "message": "Please remove the current bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "continueLabel": "Continue"
+    },
+    "MANUAL_LOAD_TOOL": {
+      "title": "Manual Load",
+      "message": "Please install the new bit securely, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "continueLabel": "Continue"
+    }
+  }
 }
