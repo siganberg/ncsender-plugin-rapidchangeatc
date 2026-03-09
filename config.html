@@ -1762,8 +1762,6 @@
       }
     };
 
-    window.addEventListener('message', handleServerStateUpdate);
-
     var populateAuxOutputs = async function() {
       try {
         var responses = await Promise.all([
@@ -1816,12 +1814,19 @@
       }
     };
 
-    applyInitialSettings();
     updateProbeGcodeState();
     fetch(BASE_URL + '/api/settings')
       .then(function(r) { return r.ok ? r.json() : {}; })
       .then(function(s) { UNITS_PREFERENCE = s.unitsPreference || 'metric'; })
-      .catch(function() {});
+      .catch(function() {})
+      .finally(function() {
+        applyInitialSettings();
+        window.addEventListener('message', handleServerStateUpdate);
+        fetch(BASE_URL + '/api/server-state')
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(s) { if (s) updateAxisDisplay(extractCoordinatesFromPayload(s)); })
+          .catch(function() {});
+      });
     populateAuxOutputs();
 
     var autoDetectHelpIcon = document.getElementById('rc-auto-detect-help');
