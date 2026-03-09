@@ -1163,8 +1163,12 @@
 
     var getInput = function(id) { return document.getElementById(id); };
 
+    var UNITS_PREFERENCE = 'metric';
+    var MM_PER_INCH = 25.4;
     var formatCoordinate = function(value) {
-      return Number.isFinite(value) ? value.toFixed(3) : '';
+      if (!Number.isFinite(value)) return '';
+      if (UNITS_PREFERENCE === 'imperial') return (value / MM_PER_INCH).toFixed(4);
+      return value.toFixed(3);
     };
 
     var parseCoordinateString = function(raw) {
@@ -1814,6 +1818,10 @@
 
     applyInitialSettings();
     updateProbeGcodeState();
+    fetch(BASE_URL + '/api/settings')
+      .then(function(r) { return r.ok ? r.json() : {}; })
+      .then(function(s) { UNITS_PREFERENCE = s.unitsPreference || 'metric'; })
+      .catch(function() {});
     populateAuxOutputs();
 
     var autoDetectHelpIcon = document.getElementById('rc-auto-detect-help');
