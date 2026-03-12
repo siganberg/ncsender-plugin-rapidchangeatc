@@ -185,7 +185,7 @@ function getToolOffsets(toolNumber, tools) {
   }
   const tool = tools.find(t => t.toolNumber === toolNumber);
   if (tool && tool.offsets) {
-    return { x: tool.offsets.x || 0, y: tool.offsets.y || 0, z: tool.offsets.z || 0 };
+    return { x: tool.offsets.x || 0, y: tool.offsets.y || 0, z: tool.offsets.tlsZ || 0 };
   }
   return { x: 0, y: 0, z: 0 };
 }
