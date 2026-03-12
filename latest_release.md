@@ -1,5 +1,9 @@
+
+
 ## What's Changed
 
 ### 🐛 Bug Fixes
-- Fixed DRO display showing metric units on first load before user's unit preference was applied
-- Fixed DRO display not correctly respecting imperial unit preference
+- Fixed TLS Z offset not correctly reading tool-specific Z travel values from tool offsets
+
+### 🔧 Improvements
+- Updated minimum required app version to 2.0.0
