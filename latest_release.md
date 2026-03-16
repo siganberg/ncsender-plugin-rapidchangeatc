@@ -1,4 +1,7 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Fixed dialog layout so content scrolls properly with the footer staying pinned at the bottom
+### ✨ New Features
+- Added support for the Basic model option in tool change operations
+
+### 🔧 Improvements
+- Removed legacy V1 Node.js wrapper for improved performance and reduced plugin size
