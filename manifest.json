@@ -3,7 +3,6 @@
   "name": "Rapid Change ATC",
   "version": "0.1.54",
   "minAppVersion": "2.0.0",
-  "entry": "index.js",
   "commands": "commands.js",
   "configUi": "config.html",
   "author": "ncSender",
@@ -13,8 +12,6 @@
   "priority": 50,
   "icon": "logo.png",
   "platforms": {
-    "v1": "0.3.111",
-    "pro-v1": "0.3.111",
     "pro-v2": "2.0.0"
   },
   "events": ["onBeforeCommand"],

@@ -368,18 +368,10 @@ function createToolUnload(settings) {
 }
 
 function createToolLoad(settings, tool) {
-  const zone1 = settings.zone1;
-  const zone2 = settings.zone2;
-  const manualFallback = createManualToolFallback(settings);
   const g65p6Before = settings.spindleAtSpeed ? '' : 'G65P6';
   const g65p6After = settings.spindleAtSpeed ? '' : 'G65P6';
 
-  const sensorCheckNotTriggered = getSensorCheckCondition(settings.toolSensor, 0, 300);
-  const sensorCheckTriggered = getSensorCheckCondition(settings.toolSensor, 1, 301);
-  const sensorCheckClose300 = getSensorCheckClose(300);
-  const sensorCheckClose301 = getSensorCheckClose(301);
-
-  return `
+  const loadSequence = `
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
     ${g65p6Before}
     M3 S${settings.loadRpm}
@@ -391,14 +383,31 @@ function createToolLoad(settings, tool) {
     G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
     ${g65p6After}
     M5
-    G53 G0 Z${zone1}
+    G53 G0 Z${settings.zone1}
     G4 P0.2
+  `.trim();
+
+  if (settings.model === 'Basic') {
+    return `
+      ${loadSequence}
+      M61 Q${tool}
+    `.trim();
+  }
+
+  const manualFallback = createManualToolFallback(settings);
+  const sensorCheckNotTriggered = getSensorCheckCondition(settings.toolSensor, 0, 300);
+  const sensorCheckTriggered = getSensorCheckCondition(settings.toolSensor, 1, 301);
+  const sensorCheckClose300 = getSensorCheckClose(300);
+  const sensorCheckClose301 = getSensorCheckClose(301);
+
+  return `
+    ${loadSequence}
     ${sensorCheckNotTriggered}
       G4 P0
       (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
       ${manualFallback}
     o300 ELSE
-      G53 G0 Z${zone2}
+      G53 G0 Z${settings.zone2}
       G4 P0.2
       ${sensorCheckTriggered}
         G4 P0
@@ -441,6 +450,13 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       G4 P0
       (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL)
       ${createManualToolFallback(settings)}
+      M61 Q0
+    `.trim();
+  } else if (settings.model === 'Basic') {
+    return `
+      G53 G0 Z${settings.zSafe}
+      G53 G0 X${sourcePos.x} Y${sourcePos.y}
+      ${createToolUnload(settings)}
       M61 Q0
     `.trim();
   } else {
