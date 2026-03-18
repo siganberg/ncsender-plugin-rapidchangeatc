@@ -158,6 +158,8 @@ const buildInitialConfig = (raw = {}) => {
 
     loadRpm,
     unloadRpm,
+    loadPlunges: Math.min(Math.max(toFiniteNumber(raw.loadPlunges, 3), 1), 10),
+    unloadPlunges: Math.min(Math.max(toFiniteNumber(raw.unloadPlunges, 1), 1), 10),
     engageFeedrate: toFiniteNumber(raw.engageFeedrate, 3500),
 
     seekDistance: toFiniteNumber(raw.seekDistance, 50),
@@ -358,8 +360,9 @@ function createToolUnload(settings) {
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
     ${g65p6Before}
     M4 S${settings.unloadRpm}
-    G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}
-    G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
+    ${Array.from({ length: settings.unloadPlunges }, () =>
+      `G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}\n    G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}`
+    ).join('\n    ')}
     ${g65p6After}
     M5
     G53 G0 Z${zone1}
@@ -375,12 +378,9 @@ function createToolLoad(settings, tool) {
     G53 G0 Z${settings.zEngagement + settings.zSpinOff}
     ${g65p6Before}
     M3 S${settings.loadRpm}
-    G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}
-    G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
-    G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}
-    G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
-    G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}
-    G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}
+    ${Array.from({ length: settings.loadPlunges }, () =>
+      `G53 G1 Z${settings.zEngagement} F${settings.engageFeedrate}\n    G53 G1 Z${settings.zEngagement + settings.zRetreat} F${settings.engageFeedrate}`
+    ).join('\n    ')}
     ${g65p6After}
     M5
     G53 G0 Z${settings.zone1}

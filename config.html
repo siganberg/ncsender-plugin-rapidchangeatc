@@ -825,6 +825,16 @@
             </div>
 
             <div class="rc-form-group-horizontal">
+              <label class="rc-form-label" title="Number of plunge/retreat cycles when loading a tool into the collet">Load Plunges</label>
+              <input type="number" class="rc-input" id="rc-load-plunges" value="3" min="1" max="10" step="1">
+            </div>
+
+            <div class="rc-form-group-horizontal">
+              <label class="rc-form-label" title="Number of plunge/retreat cycles when unloading a tool from the collet">Unload Plunges</label>
+              <input type="number" class="rc-input" id="rc-unload-plunges" value="1" min="1" max="10" step="1">
+            </div>
+
+            <div class="rc-form-group-horizontal">
               <label class="rc-form-label">Pocket Distance (mm)</label>
               <input type="number" class="rc-input" id="rc-pocket-distance" value="45" min="1" max="500" step="0.1">
             </div>
@@ -1313,6 +1323,16 @@
         zRetreatInput.value = String(initialConfig.zRetreat ?? 7);
       }
 
+      var loadPlungesInput = getInput('rc-load-plunges');
+      if (loadPlungesInput) {
+        loadPlungesInput.value = String(initialConfig.loadPlunges ?? 3);
+      }
+
+      var unloadPlungesInput = getInput('rc-unload-plunges');
+      if (unloadPlungesInput) {
+        unloadPlungesInput.value = String(initialConfig.unloadPlunges ?? 1);
+      }
+
       var pocketDistanceInput = getInput('rc-pocket-distance');
       if (pocketDistanceInput) {
         pocketDistanceInput.value = String(initialConfig.pocketDistance ?? 45);
@@ -1514,6 +1534,8 @@
       var spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
       var addProbeCheck = getInput('rc-add-probe');
       var zRetreatInput = getInput('rc-z-retreat');
+      var loadPlungesInput = getInput('rc-load-plunges');
+      var unloadPlungesInput = getInput('rc-unload-plunges');
       var pocketDistanceInput = getInput('rc-pocket-distance');
       var zProbeStartInput = getInput('rc-z-probe-start');
       var seekDistanceInput = getInput('rc-seek-distance');
@@ -1538,6 +1560,8 @@
         zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
         zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
         zRetreat: zRetreatInput ? getParseFloat(zRetreatInput.value) : 7,
+        loadPlunges: loadPlungesInput ? getParseInt(loadPlungesInput.value) : 3,
+        unloadPlunges: unloadPlungesInput ? getParseInt(unloadPlungesInput.value) : 1,
         pocketDistance: pocketDistanceInput ? getParseFloat(pocketDistanceInput.value) : 45,
         zProbeStart: zProbeStartInput ? getParseFloat(zProbeStartInput.value) : -20,
         seekDistance: seekDistanceInput ? getParseFloat(seekDistanceInput.value) : 50,
