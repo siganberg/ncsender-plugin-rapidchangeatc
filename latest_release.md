@@ -1,4 +1,4 @@
 ## What's Changed
 
-### ✨ New Features
-- Added configurable plunge cycles for tool load and unload operations, giving users more control over the tool change process
+### 🐛 Bug Fixes
+- Fixed imperial mode so that tool measurements are correctly converted and displayed, ensuring consistent metric-based internal handling for grab, display, and save operations
