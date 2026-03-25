@@ -1171,10 +1171,21 @@
 
     var UNITS_PREFERENCE = 'metric';
     var MM_PER_INCH = 25.4;
+
+    // Last known machine position in metric (mm) — used by grab to avoid double-conversion
+    var lastMPosMetric = { x: 0, y: 0, z: 0 };
+
     var formatCoordinate = function(value) {
       if (!Number.isFinite(value)) return '';
       if (UNITS_PREFERENCE === 'imperial') return (value / MM_PER_INCH).toFixed(4);
       return value.toFixed(3);
+    };
+
+    // Convert displayed value back to metric for saving
+    var toMetric = function(value) {
+      if (!Number.isFinite(value)) return value;
+      if (UNITS_PREFERENCE === 'imperial') return value * MM_PER_INCH;
+      return value;
     };
 
     var parseCoordinateString = function(raw) {
@@ -1399,19 +1410,11 @@
     };
 
     var grabCoordinates = async function(prefix) {
-      var axisX = document.getElementById('rc-axis-x');
-      var axisY = document.getElementById('rc-axis-y');
-      var axisZ = document.getElementById('rc-axis-z');
-
-      if (!axisX || !axisY || !axisZ) {
-        notifyError('Unable to read machine coordinates from display.');
-        return;
-      }
-
+      // Use cached metric MPos — not the displayed text which may be imperial
       var coords = {
-        x: parseFloat(axisX.textContent),
-        y: parseFloat(axisY.textContent),
-        z: parseFloat(axisZ.textContent)
+        x: lastMPosMetric.x,
+        y: lastMPosMetric.y,
+        z: lastMPosMetric.z
       };
 
       if (!Number.isFinite(coords.x) || !Number.isFinite(coords.y) || !Number.isFinite(coords.z)) {
@@ -1419,6 +1422,7 @@
         return;
       }
 
+      // setCoordinateInputs uses formatCoordinate which handles metric→imperial display
       setCoordinateInputs(prefix, coords);
 
       if (prefix === POCKET_PREFIX) {
@@ -1556,16 +1560,16 @@
         atcStartDelay: atcStartDelayInput ? getParseInt(atcStartDelayInput.value) : 0,
         loadRpm: loadRpmInput ? getParseInt(loadRpmInput.value) : 1200,
         unloadRpm: unloadRpmInput ? getParseInt(unloadRpmInput.value) : 1500,
-        zEngagement: zEngagementInput ? getParseFloat(zEngagementInput.value) : -50,
-        zone1: zone1Input ? getParseFloat(zone1Input.value) : -27,
-        zone2: zone2Input ? getParseFloat(zone2Input.value) : -22,
-        zRetreat: zRetreatInput ? getParseFloat(zRetreatInput.value) : 7,
+        zEngagement: zEngagementInput ? toMetric(getParseFloat(zEngagementInput.value)) : -50,
+        zone1: zone1Input ? toMetric(getParseFloat(zone1Input.value)) : -27,
+        zone2: zone2Input ? toMetric(getParseFloat(zone2Input.value)) : -22,
+        zRetreat: zRetreatInput ? toMetric(getParseFloat(zRetreatInput.value)) : 7,
         loadPlunges: loadPlungesInput ? getParseInt(loadPlungesInput.value) : 3,
         unloadPlunges: unloadPlungesInput ? getParseInt(unloadPlungesInput.value) : 1,
-        pocketDistance: pocketDistanceInput ? getParseFloat(pocketDistanceInput.value) : 45,
-        zProbeStart: zProbeStartInput ? getParseFloat(zProbeStartInput.value) : -20,
-        seekDistance: seekDistanceInput ? getParseFloat(seekDistanceInput.value) : 50,
-        seekFeedrate: seekFeedrateInput ? getParseFloat(seekFeedrateInput.value) : 500,
+        pocketDistance: pocketDistanceInput ? toMetric(getParseFloat(pocketDistanceInput.value)) : 45,
+        zProbeStart: zProbeStartInput ? toMetric(getParseFloat(zProbeStartInput.value)) : -20,
+        seekDistance: seekDistanceInput ? toMetric(getParseFloat(seekDistanceInput.value)) : 50,
+        seekFeedrate: seekFeedrateInput ? toMetric(getParseFloat(seekFeedrateInput.value)) : 500,
         tlsAuxOutput: (function() {
           if (!tlsAuxOutputSelect) return -1;
           var val = tlsAuxOutputSelect.value;
@@ -1579,16 +1583,16 @@
         postToolChangeGcode: postToolChangeEditor ? postToolChangeEditor.getValue() : '',
         abortEventGcode: abortEventEditor ? abortEventEditor.getValue() : '',
         pocket1: {
-          x: pocket1X ? getParseFloat(pocket1X.value) : null,
-          y: pocket1Y ? getParseFloat(pocket1Y.value) : null
+          x: pocket1X ? toMetric(getParseFloat(pocket1X.value)) : null,
+          y: pocket1Y ? toMetric(getParseFloat(pocket1Y.value)) : null
         },
         toolSetter: {
-          x: toolSetterX ? getParseFloat(toolSetterX.value) : null,
-          y: toolSetterY ? getParseFloat(toolSetterY.value) : null
+          x: toolSetterX ? toMetric(getParseFloat(toolSetterX.value)) : null,
+          y: toolSetterY ? toMetric(getParseFloat(toolSetterY.value)) : null
         },
         manualTool: {
-          x: manualToolX ? getParseFloat(manualToolX.value) : null,
-          y: manualToolY ? getParseFloat(manualToolY.value) : null
+          x: manualToolX ? toMetric(getParseFloat(manualToolX.value)) : null,
+          y: manualToolY ? toMetric(getParseFloat(manualToolY.value)) : null
         }
       };
     };
@@ -1752,6 +1756,11 @@
 
     var updateAxisDisplay = function(coords) {
       if (!coords) return;
+
+      // Cache raw metric values for grab
+      if (coords.x !== undefined) lastMPosMetric.x = coords.x;
+      if (coords.y !== undefined) lastMPosMetric.y = coords.y;
+      if (coords.z !== undefined) lastMPosMetric.z = coords.z;
 
       var axisX = document.getElementById('rc-axis-x');
       var axisY = document.getElementById('rc-axis-y');
