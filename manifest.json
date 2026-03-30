@@ -1,7 +1,7 @@
 {
   "id": "com.ncsender.rapidchangeatc",
   "name": "Rapid Change ATC",
-  "version": "0.1.57",
+  "version": "0.1.58",
   "minAppVersion": "2.0.0",
   "commands": "commands.js",
   "configUi": "config.html",
