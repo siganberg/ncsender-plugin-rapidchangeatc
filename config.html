@@ -636,6 +636,7 @@
     <button class="rc-tab" data-tab="events">
       <span class="rc-tab-label">Events</span>
     </button>
+    <span id="rc-units-badge" style="display: none; margin-left: auto; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; background: var(--color-surface-elevated, #2a2a3e); color: var(--color-accent, #1abc9c); border: 1px solid var(--color-border, #333); align-self: center;"></span>
   </div>
 
   <div class="rc-content">
@@ -820,7 +821,7 @@
         <div class="rc-left-panel">
           <div class="rc-calibration-group">
             <div class="rc-form-group-horizontal">
-              <label class="rc-form-label">Z-Retreat (mm)</label>
+              <label class="rc-form-label" id="rc-label-z-retreat">Z-Retreat (mm)</label>
               <input type="number" class="rc-input" id="rc-z-retreat" value="7" min="0" max="200" step="0.1">
             </div>
 
@@ -835,7 +836,7 @@
             </div>
 
             <div class="rc-form-group-horizontal">
-              <label class="rc-form-label">Pocket Distance (mm)</label>
+              <label class="rc-form-label" id="rc-label-pocket-distance">Pocket Distance (mm)</label>
               <input type="number" class="rc-input" id="rc-pocket-distance" value="45" min="1" max="500" step="0.1">
             </div>
 
@@ -897,17 +898,17 @@
             <div class="rc-form-group">
               <label class="rc-form-label" style="text-align: center;">TLS Settings</label>
               <div class="rc-form-group-horizontal">
-                <label class="rc-form-label">Starting Z-Probe (mm)</label>
+                <label class="rc-form-label" id="rc-label-z-probe-start">Starting Z-Probe (mm)</label>
                 <input type="number" class="rc-input" id="rc-z-probe-start" value="-20" step="0.1">
               </div>
 
               <div class="rc-form-group-horizontal">
-                <label class="rc-form-label">Seek Distance (mm)</label>
+                <label class="rc-form-label" id="rc-label-seek-distance">Seek Distance (mm)</label>
                 <input type="number" class="rc-input" id="rc-seek-distance" value="50" min="1" max="200" step="0.1">
               </div>
 
               <div class="rc-form-group-horizontal">
-                <label class="rc-form-label">Seek Feedrate (mm/min)</label>
+                <label class="rc-form-label" id="rc-label-seek-feedrate">Seek Feedrate (mm/min)</label>
                 <input type="number" class="rc-input" id="rc-seek-feedrate" value="500" min="1" max="5000" step="1">
               </div>
 
@@ -1188,6 +1189,9 @@
       return value;
     };
 
+    var unitLabel = function() { return UNITS_PREFERENCE === 'imperial' ? 'in' : 'mm'; };
+    var feedLabel = function() { return UNITS_PREFERENCE === 'imperial' ? 'in/min' : 'mm/min'; };
+
     var parseCoordinateString = function(raw) {
       if (typeof raw === 'string' && raw.length > 0) {
         var parts = raw.split(',').map(function(part) { return Number.parseFloat(part.trim()); });
@@ -1331,7 +1335,7 @@
 
       var zRetreatInput = getInput('rc-z-retreat');
       if (zRetreatInput) {
-        zRetreatInput.value = String(initialConfig.zRetreat ?? 7);
+        zRetreatInput.value = formatCoordinate(initialConfig.zRetreat ?? 7);
       }
 
       var loadPlungesInput = getInput('rc-load-plunges');
@@ -1346,22 +1350,22 @@
 
       var pocketDistanceInput = getInput('rc-pocket-distance');
       if (pocketDistanceInput) {
-        pocketDistanceInput.value = String(initialConfig.pocketDistance ?? 45);
+        pocketDistanceInput.value = formatCoordinate(initialConfig.pocketDistance ?? 45);
       }
 
       var zProbeStartInput = getInput('rc-z-probe-start');
       if (zProbeStartInput) {
-        zProbeStartInput.value = String(initialConfig.zProbeStart ?? -20);
+        zProbeStartInput.value = formatCoordinate(initialConfig.zProbeStart ?? -20);
       }
 
       var seekDistanceInput = getInput('rc-seek-distance');
       if (seekDistanceInput) {
-        seekDistanceInput.value = String(initialConfig.seekDistance ?? 50);
+        seekDistanceInput.value = formatCoordinate(initialConfig.seekDistance ?? 50);
       }
 
       var seekFeedrateInput = getInput('rc-seek-feedrate');
       if (seekFeedrateInput) {
-        seekFeedrateInput.value = String(initialConfig.seekFeedrate ?? 500);
+        seekFeedrateInput.value = formatCoordinate(initialConfig.seekFeedrate ?? 500);
       }
 
       var toolSensorInput = getInput('rc-tool-sensor');
@@ -1850,6 +1854,27 @@
       .catch(function() {})
       .finally(function() {
         applyInitialSettings();
+
+        // Update units badge and labels based on preference
+        var u = unitLabel();
+        var f = feedLabel();
+        var badge = document.getElementById('rc-units-badge');
+        if (badge) {
+          badge.textContent = UNITS_PREFERENCE === 'imperial' ? 'IMPERIAL' : 'METRIC';
+          badge.style.display = 'block';
+        }
+        var labelMap = {
+          'rc-label-z-retreat': 'Z-Retreat (' + u + ')',
+          'rc-label-pocket-distance': 'Pocket Distance (' + u + ')',
+          'rc-label-z-probe-start': 'Starting Z-Probe (' + u + ')',
+          'rc-label-seek-distance': 'Seek Distance (' + u + ')',
+          'rc-label-seek-feedrate': 'Seek Feedrate (' + f + ')'
+        };
+        for (var id in labelMap) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = labelMap[id];
+        }
+
         window.addEventListener('message', handleServerStateUpdate);
         fetch(BASE_URL + '/api/server-state')
           .then(function(r) { return r.ok ? r.json() : null; })
