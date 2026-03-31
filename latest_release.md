@@ -1,4 +1,5 @@
 ## What's Changed
 
 ### 🐛 Bug Fixes
-- Fixed coordinate values being corrupted when loading the Advance tab in imperial mode
+- Fixed zone auto-detection to work correctly during tool changes
+- Fixed collet change calculations to use accurate internal values instead of rounded display values
