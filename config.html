@@ -1727,18 +1727,14 @@
       var cncData = event.data.data;
 
       if (typeof cncData === 'string' && cncData.includes('PARAM:5063')) {
-        var axisZ = document.getElementById('rc-axis-z');
-        if (!axisZ) {
-          console.error('[RapidChangeATC] Cannot find axis Z display');
-          return;
-        }
-
-        var machineZ = parseFloat(axisZ.textContent);
+        // Use cached metric MPos for zone calculation (not displayed text which may be imperial)
+        var machineZ = lastMPosMetric.z;
         if (!Number.isFinite(machineZ)) {
-          console.error('[RapidChangeATC] Invalid machine Z value:', axisZ.textContent);
+          console.error('[RapidChangeATC] Invalid machine Z value');
           return;
         }
 
+        // Offsets in mm (metric) — zone1 is 3mm below, zone2 is 2mm above
         var zone1 = machineZ - 3;
         var zone2 = machineZ + 2;
 
@@ -1746,13 +1742,13 @@
         var zone2Input = getInput('rc-zone2');
 
         if (zone1Input) {
-          zone1Input.value = zone1.toFixed(3);
+          zone1Input.value = formatCoordinate(zone1);
         }
         if (zone2Input) {
-          zone2Input.value = zone2.toFixed(3);
+          zone2Input.value = formatCoordinate(zone2);
         }
 
-        notifySuccess('Zones calculated: Zone1=' + zone1.toFixed(3) + ', Zone2=' + zone2.toFixed(3));
+        notifySuccess('Zones calculated: Zone1=' + formatCoordinate(zone1) + ', Zone2=' + formatCoordinate(zone2));
       }
     };
 
@@ -1939,7 +1935,7 @@
         loadRpmInput.value = String(newLoadDefault);
         unloadRpmInput.value = String(newUnloadDefault);
         if (zRetreatInput) {
-          zRetreatInput.value = String(newZRetreatDefault);
+          zRetreatInput.value = formatCoordinate(newZRetreatDefault);
         }
       });
     }
