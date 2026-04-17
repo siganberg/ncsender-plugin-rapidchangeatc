@@ -149,7 +149,7 @@ const buildInitialConfig = (raw = {}) => {
     pocketDistance: toFiniteNumber(raw.pocketDistance, 45),
 
     zEngagement: toFiniteNumber(raw.zEngagement, -50),
-    zSafe: toFiniteNumber(raw.zSafe, 0),
+    zSafe: toFiniteNumber(raw.zSafe, 0), // fallback; overridden by context.safeZHeight at runtime
     zSpinOff: toFiniteNumber(raw.zSpinOff, 23),
     zRetreat,
     zProbeStart: toFiniteNumber(raw.zProbeStart, -20),
@@ -743,6 +743,11 @@ function handleM6Command(commands, context, settings) {
 // === Main Entry Point ===
 
 function onBeforeCommand(commands, context, settings) {
+  // Use core app's safe Z height setting, fallback to 0 (machine Z0)
+  if (context && context.safeZHeight !== undefined) {
+    settings.zSafe = context.safeZHeight;
+  }
+
   handleHomeCommand(commands, context, settings);
   handleTLSCommand(commands, context, settings);
   handlePocket1Command(commands, settings);
