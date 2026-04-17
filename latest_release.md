@@ -1,5 +1,4 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Fixed zone auto-detection to work correctly during tool changes
-- Fixed collet change calculations to use accurate internal values instead of rounded display values
+### 🔧 Improvements
+- Retraction height now uses the application's Safe Z Height setting instead of a separate plugin-specific value, ensuring consistent behavior across all operations
