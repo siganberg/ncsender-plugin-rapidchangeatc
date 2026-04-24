@@ -404,14 +404,14 @@ function createToolLoad(settings, tool) {
     ${loadSequence}
     ${sensorCheckNotTriggered}
       G4 P0
-      (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
+      (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL_${tool})
       ${manualFallback}
     o300 ELSE
       G53 G0 Z${settings.zone2}
       G4 P0.2
       ${sensorCheckTriggered}
         G4 P0
-        (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL)
+        (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL_${tool})
         ${manualFallback}
       ${sensorCheckClose301}
     ${sensorCheckClose300}
@@ -437,7 +437,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       return `
         G53 G0 Z${settings.zSafe}
         G4 P0
-        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_PROBE)
+        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_PROBE_${PROBE_TOOL_NUMBER})
         ${createManualToolFallback(settings)}
         M61 Q0
       `.trim();
@@ -448,7 +448,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
     return `
       G53 G0 Z${settings.zSafe}
       G4 P0
-      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL)
+      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL_${currentTool})
       ${createManualToolFallback(settings)}
       M61 Q0
     `.trim();
@@ -473,7 +473,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
         ${createToolUnload(settings)}
         ${sensorCheckTriggered101}
           G4 P0
-          (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL)
+          (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL_${currentTool})
           ${createManualToolFallback(settings)}
         ${sensorCheckClose101}
       ${sensorCheckClose100}
@@ -501,7 +501,7 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
       return `
         G53 G0 Z${settings.zSafe}
         G4 P0
-        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_PROBE)
+        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_PROBE_${PROBE_TOOL_NUMBER})
         ${createManualToolFallback(settings)}
         M61 Q${PROBE_TOOL_NUMBER}
         ${tlsRoutine}
@@ -520,7 +520,7 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
     return `
       G53 G0 Z${settings.zSafe}
       G4 P0
-      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL)
+      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL_${toolNumber})
       ${createManualToolFallback(settings)}
       M61 Q${toolNumber}
       ${tlsRoutine}

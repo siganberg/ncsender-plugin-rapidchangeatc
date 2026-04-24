@@ -22,22 +22,22 @@
   "messages": {
     "FAILED_UNLOAD_TOOL": {
       "title": "Unload Failed",
-      "message": "Failed to unload the bit. Please manually remove the bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "message": "Failed to unload {toolNumber}. Please manually remove the bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
       "continueLabel": "Continue"
     },
     "FAILED_LOAD_TOOL": {
       "title": "Load Failed",
-      "message": "Failed to load the bit. Please manually install the bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "message": "Failed to load {toolNumber}. Please manually install the bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
       "continueLabel": "Continue"
     },
     "MANUAL_UNLOAD_TOOL": {
       "title": "Manual Unload",
-      "message": "Please remove the current bit, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "message": "Please remove {toolNumber}, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
       "continueLabel": "Continue"
     },
     "MANUAL_LOAD_TOOL": {
       "title": "Manual Load",
-      "message": "Please install the new bit securely, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
+      "message": "Please install {toolNumber} securely, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
       "continueLabel": "Continue"
     }
   }
