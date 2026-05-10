@@ -1072,7 +1072,7 @@
       }
 
       var monaco = window.monaco;
-      var theme = isLightTheme() ? 'gcode-light' : 'gcode-dark';
+      var theme = isLightTheme() ? 'ncsender-light' : 'ncsender-dark';
 
       var editorOptions = {
         language: 'gcode',
@@ -1133,7 +1133,7 @@
       }
 
       var themeObserver = new MutationObserver(function() {
-        var newTheme = isLightTheme() ? 'gcode-light' : 'gcode-dark';
+        var newTheme = isLightTheme() ? 'ncsender-light' : 'ncsender-dark';
         monaco.editor.setTheme(newTheme);
       });
       themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
