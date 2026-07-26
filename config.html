@@ -717,7 +717,7 @@
                   <span id="rc-probe-led" class="rc-probe-led"></span>
                 </div>
                 <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
-                  <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower and fine-tune the position until the nut is just inside Pocket 1. Manually rotate the spindle to ensure nothing is rubbing. Once everything is centered, continue lowering until the nut begins to touch the pocket's ball bearing, then click Auto Detect.</span>
+                  <span class="rc-tooltip-text">With the collet, nut, and bit installed on the spindle, position the spindle over Pocket 1 of the magazine. Use the Jog controls to lower the spindle until the nut blocks the IR sensor, while keeping the nut centered inside Pocket 1 as much as possible. Watch the <b>IR</b> indicator next to this button — it stays green while the beam is clear and turns <b>red</b> the moment the nut breaks it. Once it's red, click Auto Detect — the plugin will calculate Z, Zone 1, and Zone 2 for you.</span>
                 </div>
               </div>
               <div style="display: flex; gap: 24px; justify-content: center;">
@@ -1678,7 +1678,17 @@
         autoCalibrateButton.disabled = true;
         autoCalibrateButton.classList.add('rc-button-busy');
 
-        await grabCoordinates(POCKET_PREFIX);
+        // Auto-Detect captures Pocket 1's X/Y only. Z (both the pocket-Z field
+        // and Z-engagement) stays untouched here — it'll be filled in from the
+        // IR probe result once PARAM:5063 comes back. Manual Grab is what
+        // populates all three coordinates from the current MPos.
+        if (!Number.isFinite(lastMPosMetric.x) || !Number.isFinite(lastMPosMetric.y)) {
+          notifyError('Invalid machine coordinates. Ensure the machine is connected.');
+          autoCalibrateButton.disabled = false;
+          autoCalibrateButton.classList.remove('rc-button-busy');
+          return;
+        }
+        setCoordinateInputs(POCKET_PREFIX, { x: lastMPosMetric.x, y: lastMPosMetric.y });
 
         var toolSensorValue = (getInput('rc-tool-sensor') || {}).value || 'Probe/TLS';
         var sensorCheckNotTriggered = getSensorCheckCondition(toolSensorValue, 0, 100);
@@ -1734,13 +1744,26 @@
           return;
         }
 
-        // Offsets in mm (metric) — zone1 is 3mm below, zone2 is 2mm above
+        // Offsets in mm (metric), all measured from the IR sensor release point.
+        // Same values apply across all RapidChangeATC magazine models — the nut
+        // geometry and pocket depth are consistent.
+        //   Z (engagement) = release - 34mm  (spindle-nose height at which the
+        //     collet nut engages the pocket to spin the tool in/out)
+        //   Zone 1         = release - 3mm   (retreat just below sensor release,
+        //     first sensor-check position after engagement)
+        //   Zone 2         = release + 2mm   (backup retreat just above sensor
+        //     release, second sensor-check if Zone 1 misses)
+        var zEngagement = machineZ - 34;
         var zone1 = machineZ - 3;
         var zone2 = machineZ + 2;
 
+        var zEngagementInput = getInput('rc-zengagement');
         var zone1Input = getInput('rc-zone1');
         var zone2Input = getInput('rc-zone2');
 
+        if (zEngagementInput) {
+          zEngagementInput.value = formatCoordinate(zEngagement);
+        }
         if (zone1Input) {
           zone1Input.value = formatCoordinate(zone1);
         }
@@ -1748,7 +1771,9 @@
           zone2Input.value = formatCoordinate(zone2);
         }
 
-        notifySuccess('Zones calculated: Zone1=' + formatCoordinate(zone1) + ', Zone2=' + formatCoordinate(zone2));
+        notifySuccess('Calibrated: Z=' + formatCoordinate(zEngagement)
+          + ', Zone1=' + formatCoordinate(zone1)
+          + ', Zone2=' + formatCoordinate(zone2));
       }
     };
 
