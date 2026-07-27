@@ -344,10 +344,16 @@ function calculatePocketPosition(settings, toolNum) {
 
 // === Tool Change Sub-Routines ===
 
-function createManualToolFallback(settings) {
+function createManualToolFallback(settings, messageCode) {
+  // G4 P0 forces a planner sync, so the operator dialog only appears once the
+  // retract and park moves have actually finished — not while the machine is
+  // still travelling. Keeping the message adjacent to M0 means it cannot be
+  // dismissed before the controller has reached the hold.
   return `
     G53 G0 Z${settings.zSafe}
     G53 G0 X${settings.manualTool.x} Y${settings.manualTool.y}
+    G4 P0
+    (MSG, ${messageCode})
     M0
   `.trim();
 }
@@ -394,7 +400,7 @@ function createToolLoad(settings, tool) {
     `.trim();
   }
 
-  const manualFallback = createManualToolFallback(settings);
+  const manualFallback = createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL_${tool}`);
   const sensorCheckNotTriggered = getSensorCheckCondition(settings.toolSensor, 0, 300);
   const sensorCheckTriggered = getSensorCheckCondition(settings.toolSensor, 1, 301);
   const sensorCheckClose300 = getSensorCheckClose(300);
@@ -403,15 +409,11 @@ function createToolLoad(settings, tool) {
   return `
     ${loadSequence}
     ${sensorCheckNotTriggered}
-      G4 P0
-      (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL_${tool})
       ${manualFallback}
     o300 ELSE
       G53 G0 Z${settings.zone2}
       G4 P0.2
       ${sensorCheckTriggered}
-        G4 P0
-        (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL_${tool})
         ${manualFallback}
       ${sensorCheckClose301}
     ${sensorCheckClose300}
@@ -436,9 +438,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
     } else {
       return `
         G53 G0 Z${settings.zSafe}
-        G4 P0
-        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_PROBE_${PROBE_TOOL_NUMBER})
-        ${createManualToolFallback(settings)}
+        ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_PROBE_${PROBE_TOOL_NUMBER}`)}
         M61 Q0
       `.trim();
     }
@@ -447,9 +447,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
   if (currentTool > settings.pockets) {
     return `
       G53 G0 Z${settings.zSafe}
-      G4 P0
-      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL_${currentTool})
-      ${createManualToolFallback(settings)}
+      ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL_${currentTool}`)}
       M61 Q0
     `.trim();
   } else if (settings.model === 'Basic') {
@@ -472,9 +470,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       ${sensorCheckTriggered100}
         ${createToolUnload(settings)}
         ${sensorCheckTriggered101}
-          G4 P0
-          (MSG, PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL_${currentTool})
-          ${createManualToolFallback(settings)}
+          ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL_${currentTool}`)}
         ${sensorCheckClose101}
       ${sensorCheckClose100}
       M61 Q0
@@ -500,9 +496,7 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
     } else {
       return `
         G53 G0 Z${settings.zSafe}
-        G4 P0
-        (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_PROBE_${PROBE_TOOL_NUMBER})
-        ${createManualToolFallback(settings)}
+        ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_PROBE_${PROBE_TOOL_NUMBER}`)}
         M61 Q${PROBE_TOOL_NUMBER}
         ${tlsRoutine}
       `.trim();
@@ -519,9 +513,7 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
   } else {
     return `
       G53 G0 Z${settings.zSafe}
-      G4 P0
-      (MSG, PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL_${toolNumber})
-      ${createManualToolFallback(settings)}
+      ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL_${toolNumber}`)}
       M61 Q${toolNumber}
       ${tlsRoutine}
     `.trim();
