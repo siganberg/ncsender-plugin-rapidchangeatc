@@ -269,8 +269,6 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }
   const tlsY = settings.toolSetter.y + (toolOffsets.y || 0);
   const tlsZ = toolOffsets.z || 0;
 
-  const extraZMove = tlsZ !== 0 ? `G91 G0 Z${tlsZ}\n    G90` : '';
-
   const auxOutput = settings.tlsAuxOutput;
   let auxOn = '';
   let auxOff = '';
@@ -282,11 +280,27 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }
     auxOff = `G4 P0\n    M65 P${auxOutput}\n    G4 P0`;
   }
 
+  // Safety descent from safe Z down to the probe-start altitude
+  // (zProbeStart + the tool library's per-tool Z bias). Instead of
+  // rapiding blind with G0, use G38.3 as a "probe toward" — same fast
+  // motion (grblHAL clamps F99999 to the machine Z max rate $112) but
+  // if the tool contacts the toolsetter early (mis-configured
+  // zProbeStart, tool longer than expected, etc.) the machine HALTS
+  // at contact instead of crashing. The follow-up G38.2 seek will
+  // then error with "probe already triggered", surfacing the problem
+  // to the operator. When the target is above safe Z (positive tlsZ),
+  // just do a normal G0 raise — nothing to crash into going up.
+  const approachDelta = (settings.zProbeStart + tlsZ) - settings.zSafe;
+  const approach = approachDelta < 0
+    ? `G38.3 G91 Z${approachDelta.toFixed(3)} F99999\n    G90`
+    : approachDelta > 0
+      ? `G91 G0 Z${approachDelta.toFixed(3)}\n    G90`
+      : '';
+
   const gcode = `
     G53 G0 Z${settings.zSafe}
     G53 G0 X${tlsX} Y${tlsY}
-    G53 G0 Z${settings.zProbeStart}
-    ${extraZMove}
+    ${approach}
     ${auxOn}
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
