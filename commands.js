@@ -29,6 +29,9 @@ const PROBE_TOOL_NUMBER = 99;
 // === M6 Pattern Matching (inlined from gcode-patterns.js) ===
 
 const M6_PATTERN = /(?:^|[^A-Z])M0*6(?:\s*T0*(\d+)|(?=[^0-9T])|$)|(?:^|[^A-Z])T0*(\d+)\s*M0*6(?:[^0-9]|$)/i;
+// `$slot1`, `$slot2`, ... `$SLOT03` — leading zeros tolerated so a macro
+// generator that pads numbers still resolves to the same slot.
+const SLOT_PATTERN = /^\$SLOT0*(\d+)$/i;
 
 function isGcodeComment(command) {
   const trimmed = command.trim();
@@ -62,9 +65,50 @@ function parseM6Command(command) {
   };
 }
 
+function parseSlotCommand(command) {
+  if (!command || typeof command !== 'string') {
+    return null;
+  }
+  const match = command.trim().toUpperCase().match(SLOT_PATTERN);
+  if (!match) {
+    return null;
+  }
+  const slotNumber = parseInt(match[1], 10);
+  return Number.isFinite(slotNumber) && slotNumber > 0 ? slotNumber : null;
+}
+
+// Re-indent a user-authored g-code block so it lines up with the macro it
+// gets spliced into. Blank lines are dropped — an empty setting must
+// contribute nothing at all, not a stray newline.
+function indentBlock(text) {
+  if (!text) return '';
+  const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return '';
+  return lines.join('\n    ');
+}
+
+function auxOnOff(auxOutput) {
+  if (auxOutput === 'M7' || auxOutput === 'M8') return { on: auxOutput, off: 'M9' };
+  if (typeof auxOutput === 'number' && auxOutput >= 0) {
+    return { on: `M64 P${auxOutput}`, off: `M65 P${auxOutput}` };
+  }
+  return { on: '', off: '' };
+}
+
+// The old "Switch Aux during TLS" dropdown is gone — Pre/Post TLS events
+// cover it and more. Configs saved with the dropdown are converted to the
+// equivalent event g-code on first load, so an existing toolsetter that
+// needed an aux pulse keeps working without the operator retyping it.
+function migrateLegacyTlsAux(auxOutput, action) {
+  if (auxOutput === undefined || auxOutput === null || auxOutput === -1) return '';
+  const { on, off } = auxOnOff(auxOutput);
+  const cmd = action === 'on' ? on : off;
+  return cmd ? `G4 P0\n${cmd}\nG4 P0` : '';
+}
+
 // === Sanitization / Validation Helpers ===
 
-const clampPockets = (value) => {
+const clampSlots = (value) => {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) return 6;
   return Math.min(Math.max(parsed, 1), 8);
@@ -133,7 +177,11 @@ const buildInitialConfig = (raw = {}) => {
 
   return {
     colletSize,
-    pockets: clampPockets(raw.pockets),
+    // Storage keys stay `pockets` / `pocket1` / `pocketDistance` even though
+    // the UI now says "slot" — the core's PluginManager reads `pockets` to
+    // sync the app-level tool count when the plugin is enabled, and existing
+    // installs already have these keys on disk.
+    pockets: clampSlots(raw.pockets),
     model: sanitizeModel(raw.model ?? raw.trip ?? raw.modelName ?? raw.machineModel),
     orientation: sanitizeOrientation(raw.orientation),
     direction: sanitizeDirection(raw.direction),
@@ -172,10 +220,8 @@ const buildInitialConfig = (raw = {}) => {
     preToolChangeGcode: raw.preToolChangeGcode ?? '',
     postToolChangeGcode: raw.postToolChangeGcode ?? '',
     abortEventGcode: raw.abortEventGcode ?? '',
-
-    tlsAuxOutput: raw.tlsAuxOutput === 'M7' || raw.tlsAuxOutput === 'M8'
-      ? raw.tlsAuxOutput
-      : toFiniteNumber(raw.tlsAuxOutput, -1)
+    preTlsGcode: raw.preTlsGcode ?? migrateLegacyTlsAux(raw.tlsAuxOutput, 'on'),
+    postTlsGcode: raw.postTlsGcode ?? migrateLegacyTlsAux(raw.tlsAuxOutput, 'off')
   };
 };
 
@@ -269,16 +315,13 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }
   const tlsY = settings.toolSetter.y + (toolOffsets.y || 0);
   const tlsZ = toolOffsets.z || 0;
 
-  const auxOutput = settings.tlsAuxOutput;
-  let auxOn = '';
-  let auxOff = '';
-  if (auxOutput === 'M7' || auxOutput === 'M8') {
-    auxOn = `G4 P0\n    ${auxOutput}\n    G4 P0`;
-    auxOff = `G4 P0\n    M9\n    G4 P0`;
-  } else if (typeof auxOutput === 'number' && auxOutput >= 0) {
-    auxOn = `G4 P0\n    M64 P${auxOutput}\n    G4 P0`;
-    auxOff = `G4 P0\n    M65 P${auxOutput}\n    G4 P0`;
-  }
+  // User-authored g-code fired around the probe cycle — Pre TLS runs once
+  // the spindle is parked over the toolsetter at the probe-start height,
+  // Post TLS right after the probe retracts and before the TLO is applied.
+  // Replaces the old single-aux dropdown: anything that dropdown could do
+  // (M64/M65, M7/M8/M9) is just a line in these blocks now.
+  const preTls = indentBlock(settings.preTlsGcode);
+  const postTls = indentBlock(settings.postTlsGcode);
 
   // Safety descent from safe Z down to the probe-start altitude
   // (zProbeStart + the tool library's per-tool Z bias). Instead of
@@ -301,14 +344,14 @@ function createToolLengthSetRoutine(settings, toolOffsets = { x: 0, y: 0, z: 0 }
     G53 G0 Z${settings.zSafe}
     G53 G0 X${tlsX} Y${tlsY}
     ${approach}
-    ${auxOn}
+    ${preTls}
     G43.1 Z0
     G38.2 G91 Z-${settings.seekDistance} F${settings.seekFeedrate}
     G4 P0.2
     G38.4 G91 Z5 F75
     G91 G0 Z5
     G90
-    ${auxOff}
+    ${postTls}
     #<_ofs_idx> = [#5220 * 20 + 5203]
     #<_cur_wcs_z_ofs> = #[#<_ofs_idx>]
     #<_nc_last_tlo> = [#5063 + #<_cur_wcs_z_ofs>]
@@ -341,14 +384,14 @@ function createToolLengthSetProgram(settings, toolOffsets = { x: 0, y: 0, z: 0 }
   return formatGCode(gcode);
 }
 
-// === Pocket Position Calculation ===
+// === Slot Position Calculation ===
 
-function calculatePocketPosition(settings, toolNum) {
-  if (toolNum <= 0) {
+function calculateSlotPosition(settings, slotNum) {
+  if (slotNum <= 0) {
     return { x: settings.pocket1.x, y: settings.pocket1.y };
   }
   const direction = settings.direction === 'Negative' ? -1 : 1;
-  const offset = (toolNum - 1) * settings.pocketDistance * direction;
+  const offset = (slotNum - 1) * settings.pocketDistance * direction;
   if (settings.orientation === 'Y') {
     return { x: settings.pocket1.x, y: settings.pocket1.y + offset };
   } else {
@@ -535,8 +578,8 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
 }
 
 function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets = { x: 0, y: 0 }) {
-  const sourcePos = calculatePocketPosition(settings, currentTool);
-  const targetPos = calculatePocketPosition(settings, toolNumber);
+  const sourcePos = calculateSlotPosition(settings, currentTool);
+  const targetPos = calculateSlotPosition(settings, toolNumber);
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
   const atcStartDelaySection = settings.atcStartDelay > 0 ? `G4 P${settings.atcStartDelay}` : '';
@@ -663,29 +706,43 @@ function handleHomeCommand(commands, context, settings) {
   commands.splice(homeIndex, 1, ...expandedCommands);
 }
 
-function handlePocket1Command(commands, settings) {
-  const pocket1Index = commands.findIndex(cmd =>
-    cmd.isOriginal && cmd.command.trim().toUpperCase() === '$POCKET1'
+// Manual `$slotN` navigation — parks the spindle over any configured slot,
+// not just the first. The XY comes from the same linear-array math the tool
+// change uses, so a slot the operator jogs to here is the exact spot M6
+// would drive to.
+function handleSlotCommand(commands, settings) {
+  const slotIndex = commands.findIndex(cmd =>
+    cmd.isOriginal && parseSlotCommand(cmd.command) !== null
   );
 
-  if (pocket1Index === -1) {
+  if (slotIndex === -1) {
     return;
   }
 
-  const pocket1Command = commands[pocket1Index];
+  const slotCommand = commands[slotIndex];
+  const slotNum = parseSlotCommand(slotCommand.command);
+
+  // Silently leave out-of-range references alone so a typo can't send the
+  // spindle to a slot that doesn't exist — the command falls through to the
+  // controller, which reports it as an unknown command.
+  if (slotNum === null || slotNum < 1 || slotNum > settings.pockets) {
+    return;
+  }
+
+  const target = calculateSlotPosition(settings, slotNum);
   const gcode = `
     G53 G21 G90 G0 Z${settings.zSafe}
-    G53 G21 G90 G0 X${settings.pocket1.x} Y${settings.pocket1.y}
+    G53 G21 G90 G0 X${target.x} Y${target.y}
   `.trim();
 
-  const pocket1Program = formatGCode(gcode);
+  const slotProgram = formatGCode(gcode);
   const showMacroCommand = settings.showMacroCommand ?? false;
 
-  const expandedCommands = pocket1Program.map((line, index) => {
+  const expandedCommands = slotProgram.map((line, index) => {
     if (index === 0) {
       return {
         command: line,
-        displayCommand: showMacroCommand ? null : pocket1Command.command.trim(),
+        displayCommand: showMacroCommand ? null : slotCommand.command.trim(),
         isOriginal: false
       };
     } else {
@@ -698,7 +755,7 @@ function handlePocket1Command(commands, settings) {
     }
   });
 
-  commands.splice(pocket1Index, 1, ...expandedCommands);
+  commands.splice(slotIndex, 1, ...expandedCommands);
 }
 
 function handleM6Command(commands, context, settings) {
@@ -756,7 +813,7 @@ function onBeforeCommand(commands, context, settings) {
 
   handleHomeCommand(commands, context, settings);
   handleTLSCommand(commands, context, settings);
-  handlePocket1Command(commands, settings);
+  handleSlotCommand(commands, settings);
   handleM6Command(commands, context, settings);
   return commands;
 }

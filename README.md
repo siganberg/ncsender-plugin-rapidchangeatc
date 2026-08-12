@@ -11,10 +11,10 @@ Install this plugin in ncSender through the Plugins interface.
 ## Features
 
 ### Automatic Tool Change
-- Automated M6 tool change sequences for multi-pocket ATC systems
-- Support for 1-8 tool pockets
-- Configurable pocket orientation (X or Y axis) and direction
-- Automatic pocket position calculation based on pocket distance
+- Automated M6 tool change sequences for multi-slot ATC systems
+- Support for 1-8 tool slots
+- Configurable slot orientation (X or Y axis) and direction
+- Automatic slot position calculation based on slot distance
 - Smart tool change optimization (skip if same tool)
 
 ### Tool Length Setter Integration
@@ -50,9 +50,9 @@ Install this plugin in ncSender through the Plugins interface.
 
 | Command | Description |
 |---------|-------------|
-| `M6 Tx` | Perform automatic tool change to pocket x |
+| `M6 Tx` | Perform automatic tool change to slot x |
 | `$TLS` | Run tool length setter routine |
-| `$POCKET1` | Move to pocket 1 position |
+| `$SLOT1` … `$SLOT8` | Move to the given slot position (up to the configured slot count) |
 | `$H` | Home machine (with optional automatic TLS if tool loaded) |
 
 ## Configuration Options
@@ -60,27 +60,42 @@ Install this plugin in ncSender through the Plugins interface.
 ### ATC Settings
 - **Collet Size** - ER11, ER16, ER20, ER25, ER32
 - **Model** - Basic, Pro, Premium
-- **Number of Pockets** - 1 to 8
+- **Number of Slots** - 1 to 8
 - **Orientation** - X or Y axis
 - **Direction** - Positive or Negative
-- **Pocket Distance** - Distance between pockets (mm)
+- **Slot Distance** - Distance between slots (mm)
 
 ### Position Settings
-- **Pocket 1** - X/Y location of first pocket
+- **Slot 1** - X/Y location of first slot
 - **Tool Setter** - X/Y location of tool length setter
 - **Manual Tool** - X/Y location for manual tool operations
 
 ### Tool Change Settings
 - **Load RPM** - Spindle speed for loading tools
 - **Unload RPM** - Spindle speed for unloading tools
-- **Engage Feedrate** - Feed rate for pocket engagement
+- **Engage Feedrate** - Feed rate for slot engagement
 - **Spindle At Speed** - Wait for spindle to reach speed
 - **ATC Start Delay** - Delay before starting ATC sequence (0-10 seconds)
 
 ### Tool Setter Settings
+- **Starting Z-Probe** - Absolute machine Z where the seek begins
 - **Seek Distance** - Probe travel distance (mm)
 - **Seek Feedrate** - Probe feed rate (mm/min)
 - **Tool Sensor** - Probe/TLS or Aux port selection
+
+### Events
+G-code blocks injected into the generated macros:
+- **Pre Tool Change** - Before each tool change (M6)
+- **Post Tool Change** - After each tool change completes
+- **Pre TLS** - Right before the probe cycle, with the spindle parked over the
+  tool setter (e.g. `M64 P1` to power a wired tool setter)
+- **Post TLS** - Right after the probe retracts, before the offset is applied
+  (e.g. `M65 P1`)
+- **Abort** - When a tool change is aborted
+
+> Pre/Post TLS replace the old **Switch Aux during TLS** dropdown. Existing
+> configs are migrated automatically to the equivalent `M64`/`M65` (or
+> `M7`/`M8`/`M9`) g-code the first time they load.
 
 ### Premium Features
 - **Cover Open Command** - G-code to open dust cover
@@ -115,8 +130,8 @@ These settings can be modified directly in the plugin settings JSON:
 
 1. Open the RapidChangeATC dialog from the Tools menu
 2. Select your **Collet Size** and **Model**
-3. Configure the number of **Pockets**, **Orientation**, and **Direction**
-4. Set **Pocket 1** location using the "Grab" button
+3. Configure the number of **Slots**, **Orientation**, and **Direction**
+4. Set **Slot 1** location using the "Grab" button
 5. Set **Tool Setter** location using the "Grab" button
 6. Optionally configure **Manual Tool** location
 7. Adjust RPM and other settings as needed
@@ -131,8 +146,11 @@ M6 T3
 ; Manual tool length measurement
 $TLS
 
-; Move to pocket 1
-$POCKET1
+; Move to slot 1
+$SLOT1
+
+; Move to slot 3
+$SLOT3
 
 ; Home with automatic TLS (if enabled)
 $H
