@@ -1,7 +1,10 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Operator prompts now appear only after machine motion has fully stopped, so messages no longer show up mid-move
+### ✨ New Features
+- IR lamp and Auto Detect now work with aux inputs, letting you wire tool detection to auxiliary input pins (Beta)
+- New `$slotN` support for referencing tool slots directly
+- Added tool length setting events so other parts of ncSender can react to TLS changes
 
 ### 🔧 Improvements
-- Tool length sensor approach now uses a probing move instead of a blind rapid, preventing crashes if the tool contacts the sensor earlier than expected
+- Modernized configuration UI for a cleaner, easier-to-navigate setup
+- Renamed "pockets" to "slots" throughout the plugin for clearer, more consistent terminology
