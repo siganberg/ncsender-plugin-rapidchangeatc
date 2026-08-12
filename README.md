@@ -83,6 +83,19 @@ Install this plugin in ncSender through the Plugins interface.
 - **Seek Feedrate** - Probe feed rate (mm/min)
 - **Tool Sensor** - Probe/TLS or Aux port selection
 
+### Auto Detect
+Finds the IR release point and fills in Z, Zone 1 and Zone 2. The search depends
+on the selected Tool Sensor:
+- **Probe/TLS** - uses `G38.2` / `G38.4`, since the controller's probe cycle
+  reacts to those inputs
+- **Aux Pn** - `G38` cannot see an aux input, so the plugin steps the Z axis and
+  reads the pin with `M66 P<n> L0` after each step
+
+The IR lamp in the dialog follows the same source: the status report for
+Probe/TLS, and a throttled `M66` read (idle-only, silent) for an Aux port. If
+the controller never answers the read, the lamp greys out instead of showing a
+misleading state.
+
 ### Events
 G-code blocks injected into the generated macros:
 - **Pre Tool Change** - Before each tool change (M6)

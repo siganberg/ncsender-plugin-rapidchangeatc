@@ -70,6 +70,22 @@
     font-weight: 600;
     color: var(--color-text-primary);
     letter-spacing: -0.01em;
+    /* Keep the Beta tag riding on the same line as the name instead of
+       wrapping to its own row in the 220px rail. */
+    white-space: nowrap;
+  }
+  /* Superscript "Beta" beside the plugin name — the rebuilt UI, $slotN and
+     the aux-sensor paths are still under test. */
+  .rc-beta-badge {
+    display: inline;
+    margin-left: 4px;
+    font-size: 0.55em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #e67e22;
+    vertical-align: super;
+    line-height: 1;
   }
   .rc-units-badge {
     align-self: flex-start;
@@ -517,6 +533,13 @@
     background: #ff0000;
     box-shadow: 0 0 12px rgba(255, 0, 0, 0.9);
   }
+  /* Aux input that never answered an M66 read — neither green nor red is
+     honest here, so the lamp goes dark. */
+  .rc-probe-led.rc-probe-led--unknown {
+    background: var(--color-text-secondary);
+    box-shadow: none;
+    opacity: 0.45;
+  }
 
   /* Segmented pill (Orientation, Direction) */
   .rc-slider-toggle {
@@ -821,7 +844,7 @@
     <aside class="rc-sidebar">
       <div class="rc-sidebar-header">
         <span class="rc-sidebar-eyebrow">ncSender</span>
-        <span class="rc-sidebar-title">RapidChange ATC</span>
+        <span class="rc-sidebar-title">RapidChange ATC <span class="rc-beta-badge">Beta</span></span>
         <span class="rc-units-badge" id="rc-units-badge" style="display: none;"></span>
       </div>
       <nav class="rc-sidebar-nav">
@@ -1012,14 +1035,11 @@
                directly above the button instead of down in Tool Change Motion. -->
           <div class="rc-field-inline" style="margin-top: 12px;">
             <label for="rc-tool-sensor">Tool Sensor / IR Port</label>
+            <!-- Aux entries are filled in at runtime from the controller's
+                 [AUX IO:..] report so only ports this board actually has can
+                 be picked (M66 on a missing port is a silent no-op). -->
             <select class="rc-select" id="rc-tool-sensor">
               <option value="Probe/TLS" selected>Probe/TLS</option>
-              <option value="Aux P1">Aux P1</option>
-              <option value="Aux P2">Aux P2</option>
-              <option value="Aux P3">Aux P3</option>
-              <option value="Aux P4">Aux P4</option>
-              <option value="Aux P5">Aux P5</option>
-              <option value="Aux P6">Aux P6</option>
             </select>
           </div>
           <div class="rc-field-inline">
@@ -1031,7 +1051,7 @@
             </div>
           </div>
           <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
-            With the collet, nut, and bit installed on the spindle, position the spindle over Slot 1 of the magazine. Use the Jog controls to lower the spindle until the nut blocks the IR sensor, while keeping the nut centered inside Slot 1 as much as possible. Watch the <b>IR</b> indicator next to this button — it stays green while the beam is clear and turns <b>red</b> the moment the nut breaks it. Once it's red, click Auto Detect — the plugin will calculate Z, Zone 1, and Zone 2 for you.
+            With the collet, nut, and bit installed on the spindle, position the spindle over Slot 1 of the magazine. Use the Jog controls to lower the spindle until the nut blocks the IR sensor, while keeping the nut centered inside Slot 1 as much as possible. Watch the <b>IR</b> indicator next to this button — it stays green while the beam is clear and turns <b>red</b> the moment the nut breaks it. Once it's red, click Auto Detect — the plugin will calculate Z, Zone 1, and Zone 2 for you. With an <b>Aux</b> port selected the lamp is read from the controller with <code>M66</code>, so it refreshes while the machine is idle — pause a moment after each jog step to see it update.
           </div>
         </div>
 
@@ -1524,6 +1544,10 @@
           v.classList.toggle('active', v.getAttribute('data-view') === target);
         });
         if (target === 'events' || target === 'probe') setTimeout(layoutMonacoEditors, 0);
+        // The lamp lives on the Magazine panel — don't poll the controller
+        // while the operator is looking at something else.
+        if (target === 'magazine') syncIrLampSource();
+        else if (!auxDetectPending) stopIrPoll();
       });
     });
 
@@ -1739,10 +1763,12 @@
       var toolSensorInput = getInput('rc-tool-sensor');
       if (toolSensorInput) {
         var toolSensorValue = initialConfig.toolSensor ?? 'Probe/TLS';
-        var validOptions = ['Probe/TLS', 'Aux P1', 'Aux P2', 'Aux P3', 'Aux P4', 'Aux P5', 'Aux P6'];
-        if (!validOptions.includes(toolSensorValue)) {
+        if (toolSensorValue !== 'Probe/TLS' && !/^Aux P\d+$/i.test(toolSensorValue)) {
           toolSensorValue = 'Probe/TLS';
         }
+        // The aux entries arrive from the controller a moment later; seed the
+        // saved one now so the selection survives until the list is rebuilt.
+        addToolSensorOption(toolSensorValue);
         toolSensorInput.value = toolSensorValue;
       }
     };
@@ -2031,6 +2057,7 @@
     };
 
     var closeDialog = function() {
+      stopIrPoll();
       window.postMessage({ type: 'close-plugin-dialog' }, '*');
     };
 
@@ -2106,6 +2133,193 @@
       });
     });
 
+    // ---------- Tool sensor lamp ----------
+    //
+    // Probe/TLS is pushed to us in every status report (`Pn` contains "P").
+    // An Aux input isn't in the status report at all, so the only way to see
+    // it is to ask the controller: `M66 P<n> L0` performs an immediate read
+    // into #5399, and `$#=5399` echoes that back as a [PARAM:5399|..] line
+    // we can catch on the cnc-data stream.
+    //
+    // The poll is deliberately conservative. M66 forces a planner sync, so it
+    // only goes out while the controller is Idle — never mid-job, never mid
+    // jog (the value simply holds until motion stops). Commands are sent
+    // silent so they stay out of the terminal, and three unanswered polls in
+    // a row park the lamp in an "unknown" state rather than lying about it
+    // (a controller without M66 L0 support would answer with an error).
+    var IR_POLL_INTERVAL_MS = 400;
+    var IR_POLL_TIMEOUT_MS = 1500;
+    var IR_POLL_MAX_MISSES = 3;
+    var irPollTimer = null;
+    var irPollInFlight = false;
+    var irPollSentAt = 0;
+    var irPollMisses = 0;
+    var irPollSuspended = false;
+    var lastMachineStatus = '';
+    var lastSenderStatus = '';
+    var lastJobStatus = '';
+    var lastPnString = '';
+    var auxDetectPending = false;
+    var auxDetectTimeout = null;
+    // A lamp poll already on the wire when Auto Detect is armed would answer
+    // with a [PARAM:5399] that looks exactly like the macro's completion
+    // ping. Swallow that one reply so the zones aren't computed from
+    // wherever the spindle happened to be before the search ran.
+    var auxReadsToIgnore = 0;
+
+    function currentToolSensor() {
+      var sel = getInput('rc-tool-sensor');
+      return sel ? sel.value : 'Probe/TLS';
+    }
+
+    // "Aux P3" -> 3, anything else (Probe/TLS) -> null.
+    function getAuxPort(sensorValue) {
+      var m = /Aux P(\d+)/i.exec(sensorValue || '');
+      return m ? parseInt(m[1], 10) : null;
+    }
+
+    function setIrLamp(state) {
+      var led = getInput('rc-probe-led');
+      if (!led) return;
+      led.classList.toggle('rc-probe-led--on', state === 'on');
+      led.classList.toggle('rc-probe-led--unknown', state === 'unknown');
+      led.title = state === 'unknown'
+        ? 'Sensor state unavailable — the controller did not answer M66'
+        : (state === 'on' ? 'Sensor triggered (beam blocked)' : 'Sensor clear');
+    }
+
+    function stopIrPoll() {
+      if (irPollTimer) {
+        clearInterval(irPollTimer);
+        irPollTimer = null;
+      }
+      irPollInFlight = false;
+    }
+
+    function irPollTick() {
+      // The dialog was closed out from under us — the interval would
+      // otherwise keep firing for the life of the page.
+      if (!getInput('rc-probe-led')) { stopIrPoll(); return; }
+      var port = getAuxPort(currentToolSensor());
+      if (port === null) { stopIrPoll(); return; }
+      if (irPollSuspended) return;
+
+      if (irPollInFlight) {
+        if (Date.now() - irPollSentAt < IR_POLL_TIMEOUT_MS) return;
+        irPollInFlight = false;
+        irPollMisses += 1;
+        if (irPollMisses >= IR_POLL_MAX_MISSES) {
+          setIrLamp('unknown');
+          stopIrPoll();
+        }
+        return;
+      }
+
+      // Only when the machine is genuinely free. Two separate gates:
+      //   * machine status — M66 syncs the planner, so a poll during motion
+      //     (Run / Jog / Hold) would queue behind it instead of answering.
+      //   * sender status — a paused job leaves the controller sitting Idle
+      //     with the rest of the program still queued behind it. Polling then
+      //     would splice an M66 into that job's command stream.
+      if (String(lastMachineStatus).toLowerCase() !== 'idle') return;
+      if (lastSenderStatus && lastSenderStatus !== 'idle') return;
+      if (lastJobStatus === 'running' || lastJobStatus === 'paused') return;
+
+      irPollInFlight = true;
+      irPollSentAt = Date.now();
+      fetch(BASE_URL + '/api/send-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command: 'M66 P' + port + ' L0\n$#=5399',
+          meta: { sourceId: 'rapidchangeatc-irpoll', silent: true }
+        })
+      }).catch(function() { irPollInFlight = false; });
+    }
+
+    function syncIrLampSource() {
+      var port = getAuxPort(currentToolSensor());
+      if (port === null) {
+        stopIrPoll();
+        setIrLamp(lastPnString.includes('P') ? 'on' : 'off');
+        return;
+      }
+      irPollMisses = 0;
+      if (!irPollTimer) {
+        irPollTimer = setInterval(irPollTick, IR_POLL_INTERVAL_MS);
+        irPollTick();
+      }
+    }
+
+    var toolSensorSelect = getInput('rc-tool-sensor');
+    if (toolSensorSelect) {
+      toolSensorSelect.addEventListener('change', syncIrLampSource);
+    }
+
+    // ---------- Aux input discovery ----------
+    //
+    // `$I` answers with [AUX IO:<inputs>,<outputs>,<analog in>,<analog out>].
+    // Only the ports the board reports are offered: M66 against a port that
+    // doesn't exist doesn't error, it silently leaves #5399 at its previous
+    // value — which would show a stale lamp and let Auto Detect's search run
+    // on a reading that never changes.
+    var AUX_IO_FALLBACK_PORTS = 8;
+    var auxInputCount = null;
+
+    function toolSensorOptionExists(value) {
+      var sel = getInput('rc-tool-sensor');
+      if (!sel) return false;
+      return Array.prototype.some.call(sel.options, function(o) { return o.value === value; });
+    }
+
+    function addToolSensorOption(value, label) {
+      var sel = getInput('rc-tool-sensor');
+      if (!sel || toolSensorOptionExists(value)) return;
+      var opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label || value;
+      sel.appendChild(opt);
+    }
+
+    function rebuildToolSensorOptions(count) {
+      var sel = getInput('rc-tool-sensor');
+      if (!sel) return;
+      var current = sel.value || 'Probe/TLS';
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      var probeOpt = document.createElement('option');
+      probeOpt.value = 'Probe/TLS';
+      probeOpt.textContent = 'Probe/TLS';
+      sel.appendChild(probeOpt);
+      for (var i = 0; i < count; i += 1) {
+        addToolSensorOption('Aux P' + i, 'Aux In P' + i);
+      }
+      // A saved port this board doesn't have stays listed and selected rather
+      // than being silently rewritten — the operator can see what's wrong.
+      if (current !== 'Probe/TLS' && !toolSensorOptionExists(current)) {
+        addToolSensorOption(current, current + ' — not on this board');
+      }
+      sel.value = current;
+      syncIrLampSource();
+    }
+
+    function requestAuxIo() {
+      fetch(BASE_URL + '/api/send-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command: '$I',
+          meta: { sourceId: 'rapidchangeatc-auxio', silent: true }
+        })
+      }).catch(function() {});
+      // No answer (disconnected, or a controller that doesn't report aux IO)
+      // — fall back to the old permissive list so the dialog stays usable.
+      setTimeout(function() {
+        if (auxInputCount === null && getInput('rc-tool-sensor')) {
+          rebuildToolSensorOptions(AUX_IO_FALLBACK_PORTS);
+        }
+      }, 3000);
+    }
+
     var autoCalibrateButton = getInput('rc-auto-calibrate-btn');
     if (autoCalibrateButton) {
       autoCalibrateButton.addEventListener('click', async function() {
@@ -2128,16 +2342,69 @@
         }
         setCoordinateInputs(SLOT_PREFIX, { x: lastMPosMetric.x, y: lastMPosMetric.y });
 
-        var toolSensorValue = (getInput('rc-tool-sensor') || {}).value || 'Probe/TLS';
-        var sensorCheckNotTriggered = getSensorCheckCondition(toolSensorValue, 0, 100);
-        var sensorCheckClose = getSensorCheckClose(100);
+        var toolSensorValue = currentToolSensor();
+        var auxPort = getAuxPort(toolSensorValue);
+        var gcode;
 
-        var gcode = '(If the IR sensor isn\'t triggered yet, move up first until it triggers. This is needed if the Z-engagement is set too low.)\n' +
-          sensorCheckNotTriggered + '\n' +
-          '  G38.2 G91 Z50 F200\n' +
-          sensorCheckClose + '\n' +
-          'G38.4 G91 Z50 F200\n' +
-          '$#=5063';
+        if (auxPort === null) {
+          // Probe/TLS: the sensor is wired to an input the controller's own
+          // probe cycle reacts to, so G38 does the searching. G38.2 climbs
+          // until the beam breaks (only needed when the nut started below
+          // the beam), then G38.4 backs off until it clears again — that
+          // release point is what the zones are measured from.
+          var sensorCheckNotTriggered = getSensorCheckCondition(toolSensorValue, 0, 100);
+          var sensorCheckClose = getSensorCheckClose(100);
+
+          gcode = '(If the IR sensor isn\'t triggered yet, move up first until it triggers. This is needed if the Z-engagement is set too low.)\n' +
+            sensorCheckNotTriggered + '\n' +
+            '  G38.2 G91 Z50 F200\n' +
+            sensorCheckClose + '\n' +
+            'G38.4 G91 Z50 F200\n' +
+            '$#=5063';
+        } else {
+          // Aux input: G38 can't see it — the controller only stops a probe
+          // move for the probe/toolsetter pins. Walk the same search by hand
+          // instead: step up until M66 reports the beam broken (skipped when
+          // it already is), then step up in fine increments until it clears.
+          // Ends on $#=5399, which doubles as the "measurement finished"
+          // ping the dialog waits for before reading the machine Z.
+          var read = 'M66 P' + auxPort + ' L0';
+          gcode = '(Auto Detect via Aux P' + auxPort + ' — searching for the IR release point)\n' +
+            'G91\n' +
+            read + '\n' +
+            '(If the beam is not broken yet, climb until it is — needed when the nut started below the beam.)\n' +
+            'o110 IF [#5399 EQ 0]\n' +
+            '  #<rc_steps> = 0\n' +
+            '  o111 WHILE [[#5399 EQ 0] AND [#<rc_steps> LT 100]]\n' +
+            '    G1 Z0.2 F200\n' +
+            '    #<rc_steps> = [#<rc_steps> + 1]\n' +
+            '    ' + read + '\n' +
+            '  o111 ENDWHILE\n' +
+            'o110 ENDIF\n' +
+            '(Back off in fine steps until the beam clears — this is the release point.)\n' +
+            '#<rc_steps> = 0\n' +
+            'o112 WHILE [[#5399 NE 0] AND [#<rc_steps> LT 200]]\n' +
+            '  G1 Z0.05 F150\n' +
+            '  #<rc_steps> = [#<rc_steps> + 1]\n' +
+            '  ' + read + '\n' +
+            'o112 ENDWHILE\n' +
+            'G90\n' +
+            'G4 P0.3\n' +
+            '$#=5399';
+
+          // Hold the lamp poll off the wire while the macro runs, and arm the
+          // completion listener. The safety timer covers a macro that never
+          // reports back (controller reset, feed hold, unsupported M66).
+          irPollSuspended = true;
+          auxReadsToIgnore = irPollInFlight ? 1 : 0;
+          irPollInFlight = false;
+          auxDetectPending = true;
+          if (auxDetectTimeout) clearTimeout(auxDetectTimeout);
+          auxDetectTimeout = setTimeout(function() {
+            auxDetectPending = false;
+            irPollSuspended = false;
+          }, 120000);
+        }
 
         var AUTO_CALIBRATE_GCODE = formatGCode(gcode).join('\n');
 
@@ -2168,50 +2435,87 @@
       });
     }
 
-    // Listen for cnc-data messages (probe completion)
+    // Auto Detect result. Both search paths (G38 for Probe/TLS, the M66 walk
+    // for an Aux port) finish parked at the IR release point, so the numbers
+    // are derived the same way from the machine Z we're sitting at.
+    var applyAutoDetectResult = function() {
+      // Use cached metric MPos for zone calculation (not displayed text which may be imperial)
+      var machineZ = lastMPosMetric.z;
+      if (!Number.isFinite(machineZ)) {
+        console.error('[RapidChangeATC] Invalid machine Z value');
+        return;
+      }
+
+      // Offsets in mm (metric), all measured from the IR sensor release point.
+      // Same values apply across all RapidChangeATC magazine models — the nut
+      // geometry and slot depth are consistent.
+      //   Z (engagement) = release - 34mm  (spindle-nose height at which the
+      //     collet nut engages the slot to spin the tool in/out)
+      //   Zone 1         = release - 3mm   (retreat just below sensor release,
+      //     first sensor-check position after engagement)
+      //   Zone 2         = release + 2mm   (backup retreat just above sensor
+      //     release, second sensor-check if Zone 1 misses)
+      var zEngagement = machineZ - 34;
+      var zone1 = machineZ - 3;
+      var zone2 = machineZ + 2;
+
+      var zEngagementInput = getInput('rc-zengagement');
+      var zone1Input = getInput('rc-zone1');
+      var zone2Input = getInput('rc-zone2');
+
+      if (zEngagementInput) {
+        zEngagementInput.value = formatCoordinate(zEngagement);
+      }
+      if (zone1Input) {
+        zone1Input.value = formatCoordinate(zone1);
+      }
+      if (zone2Input) {
+        zone2Input.value = formatCoordinate(zone2);
+      }
+
+      notifySuccess('Calibrated: Z=' + formatCoordinate(zEngagement)
+        + ', Zone1=' + formatCoordinate(zone1)
+        + ', Zone2=' + formatCoordinate(zone2));
+    };
+
+    // Listen for cnc-data messages (probe completion + aux sensor reads)
     var handleCNCData = function(event) {
       if (!event.data || event.data.type !== 'cnc-data') return;
 
       var cncData = event.data.data;
+      if (typeof cncData !== 'string') return;
 
-      if (typeof cncData === 'string' && cncData.includes('PARAM:5063')) {
-        // Use cached metric MPos for zone calculation (not displayed text which may be imperial)
-        var machineZ = lastMPosMetric.z;
-        if (!Number.isFinite(machineZ)) {
-          console.error('[RapidChangeATC] Invalid machine Z value');
-          return;
+      // $I report — first field of [AUX IO:in,out,ain,aout] is the aux input count.
+      var auxIo = /\[AUX IO:(\d+)\s*,/i.exec(cncData);
+      if (auxIo) {
+        auxInputCount = parseInt(auxIo[1], 10);
+        rebuildToolSensorOptions(auxInputCount);
+        return;
+      }
+
+      // Probe/TLS Auto Detect finishes with $#=5063.
+      if (cncData.includes('PARAM:5063')) {
+        applyAutoDetectResult();
+        return;
+      }
+
+      // #5399 carries the M66 result — either an Aux lamp poll or the tail
+      // of an Aux Auto Detect run, never both at once (the poll is held off
+      // for the duration of a run).
+      var auxRead = /PARAM:5399[^\-0-9]*(-?\d+(?:\.\d+)?)/i.exec(cncData);
+      if (auxRead) {
+        irPollInFlight = false;
+        irPollMisses = 0;
+        if (auxReadsToIgnore > 0) { auxReadsToIgnore -= 1; return; }
+        if (auxDetectPending) {
+          auxDetectPending = false;
+          if (auxDetectTimeout) { clearTimeout(auxDetectTimeout); auxDetectTimeout = null; }
+          irPollSuspended = false;
+          applyAutoDetectResult();
+          syncIrLampSource();
+        } else {
+          setIrLamp(parseFloat(auxRead[1]) > 0 ? 'on' : 'off');
         }
-
-        // Offsets in mm (metric), all measured from the IR sensor release point.
-        // Same values apply across all RapidChangeATC magazine models — the nut
-        // geometry and slot depth are consistent.
-        //   Z (engagement) = release - 34mm  (spindle-nose height at which the
-        //     collet nut engages the slot to spin the tool in/out)
-        //   Zone 1         = release - 3mm   (retreat just below sensor release,
-        //     first sensor-check position after engagement)
-        //   Zone 2         = release + 2mm   (backup retreat just above sensor
-        //     release, second sensor-check if Zone 1 misses)
-        var zEngagement = machineZ - 34;
-        var zone1 = machineZ - 3;
-        var zone2 = machineZ + 2;
-
-        var zEngagementInput = getInput('rc-zengagement');
-        var zone1Input = getInput('rc-zone1');
-        var zone2Input = getInput('rc-zone2');
-
-        if (zEngagementInput) {
-          zEngagementInput.value = formatCoordinate(zEngagement);
-        }
-        if (zone1Input) {
-          zone1Input.value = formatCoordinate(zone1);
-        }
-        if (zone2Input) {
-          zone2Input.value = formatCoordinate(zone2);
-        }
-
-        notifySuccess('Calibrated: Z=' + formatCoordinate(zEngagement)
-          + ', Zone1=' + formatCoordinate(zone1)
-          + ', Zone2=' + formatCoordinate(zone2));
       }
     };
 
@@ -2239,6 +2543,28 @@
       if (coords.z !== undefined) setAxis('rc-axis-z', coords.z);
     };
 
+    // Pulls the gate inputs out of a server-state payload. Shared by the
+    // live message handler and the one-shot fetch at startup — the dialog's
+    // first state broadcast is posted before this script is executed, so
+    // without the fetch the poller would never learn the machine is idle.
+    var applyStateSnapshot = function(state) {
+      var st = state || {};
+      lastSenderStatus = String(st.senderStatus || st.SenderStatus || '').toLowerCase();
+      lastJobStatus = String((st.jobLoaded && (st.jobLoaded.status || st.jobLoaded.Status))
+        || (st.JobLoaded && (st.JobLoaded.status || st.JobLoaded.Status)) || '').toLowerCase();
+
+      var ms = st.machineState || st.MachineState;
+      if (ms) {
+        lastMachineStatus = ms.status || ms.Status || lastMachineStatus;
+        lastPnString = ms.Pn || '';
+        // Probe/TLS reads straight off the status report; an Aux port has no
+        // equivalent field in the report, so it goes through the M66 poller.
+        if (getAuxPort(currentToolSensor()) === null) {
+          setIrLamp(lastPnString.includes('P') ? 'on' : 'off');
+        }
+      }
+    };
+
     var handleServerStateUpdate = function(event) {
       if (!event.data || event.data.type !== 'server-state-update') return;
 
@@ -2247,16 +2573,7 @@
         updateAxisDisplay(coords);
       }
 
-      var probeLed = document.getElementById('rc-probe-led');
-      if (probeLed && event.data.state && event.data.state.machineState) {
-        var pnString = event.data.state.machineState.Pn || '';
-        var isProbeActive = pnString.includes('P');
-        if (isProbeActive) {
-          probeLed.classList.add('rc-probe-led--on');
-        } else {
-          probeLed.classList.remove('rc-probe-led--on');
-        }
-      }
+      applyStateSnapshot(event.data.state);
     };
 
     updateProbeGcodeState();
@@ -2289,6 +2606,9 @@
           if (el) el.textContent = labelMap[id];
         }
 
+        syncIrLampSource();
+        requestAuxIo();
+
         // Seeding the form fires input/change events our dirty listeners
         // would otherwise count as user edits — clear the flag afterwards.
         setTimeout(function() { isDirty = false; }, 0);
@@ -2296,7 +2616,11 @@
         window.addEventListener('message', handleServerStateUpdate);
         fetch(BASE_URL + '/api/server-state')
           .then(function(r) { return r.ok ? r.json() : null; })
-          .then(function(s) { if (s) updateAxisDisplay(extractCoordinatesFromPayload(s)); })
+          .then(function(s) {
+            if (!s) return;
+            updateAxisDisplay(extractCoordinatesFromPayload(s));
+            applyStateSnapshot(s);
+          })
           .catch(function() {});
       });
 
