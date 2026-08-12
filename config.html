@@ -2205,10 +2205,31 @@
     function sendIrCommand(command) {
       fetch(BASE_URL + '/api/send-command', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // Same opt-out as meta.quiet.logCommand below, in header form —
+          // the dev proxy logs requests and can't read the body.
+          'X-NcSender-Quiet-Log': '1'
+        },
         body: JSON.stringify({
           command: command,
-          meta: { sourceId: 'rapidchangeatc-irpoll', silent: true }
+          meta: {
+            sourceId: 'rapidchangeatc-irpoll',
+            // Legacy flag — keeps the command out of the terminal on cores
+            // that predate the per-command quiet settings below.
+            silent: true,
+            // This is plumbing behind the lamp, not something an operator
+            // asked for, so it stays out of both the terminal and the server
+            // log in both directions. Cores that don't know the field ignore
+            // it. Auto Detect deliberately does NOT do this — that one is
+            // operator-initiated and should be visible.
+            quiet: {
+              terminalCommand: true,
+              terminalResponse: true,
+              logCommand: true,
+              logResponse: true
+            }
+          }
         })
       }).catch(function() {});
     }
