@@ -1035,9 +1035,9 @@
                directly above the button instead of down in Tool Change Motion. -->
           <div class="rc-field-inline" style="margin-top: 12px;">
             <label for="rc-tool-sensor">Tool Sensor / IR Port</label>
-            <!-- Aux entries are filled in at runtime from the controller's
-                 [AUX IO:..] report so only ports this board actually has can
-                 be picked (M66 on a missing port is a silent no-op). -->
+            <!-- Aux entries are filled in at runtime — from the core's
+                 reported aux-input count when it exposes one, otherwise a
+                 plain P0-P7 list. -->
             <select class="rc-select" id="rc-tool-sensor">
               <option value="Probe/TLS" selected>Probe/TLS</option>
             </select>
@@ -2147,13 +2147,11 @@
     // silent so they stay out of the terminal, and three unanswered polls in
     // a row park the lamp in an "unknown" state rather than lying about it
     // (a controller without M66 L0 support would answer with an error).
-    var IR_POLL_INTERVAL_MS = 400;
-    var IR_POLL_TIMEOUT_MS = 1500;
-    var IR_POLL_MAX_MISSES = 3;
+    var IR_POLL_INTERVAL_MS = 500;
+    var IR_ARM_TIMEOUT_MS = 2500;
     var irPollTimer = null;
-    var irPollInFlight = false;
-    var irPollSentAt = 0;
-    var irPollMisses = 0;
+    var irArmed = false;          // controller has answered at least once
+    var irArmSentAt = 0;          // when the arming read went out
     var irPollSuspended = false;
     var lastMachineStatus = '';
     var lastSenderStatus = '';
@@ -2161,11 +2159,6 @@
     var lastPnString = '';
     var auxDetectPending = false;
     var auxDetectTimeout = null;
-    // A lamp poll already on the wire when Auto Detect is armed would answer
-    // with a [PARAM:5399] that looks exactly like the macro's completion
-    // ping. Swallow that one reply so the zones aren't computed from
-    // wherever the spindle happened to be before the search ran.
-    var auxReadsToIgnore = 0;
 
     function currentToolSensor() {
       var sel = getInput('rc-tool-sensor');
@@ -2193,7 +2186,31 @@
         clearInterval(irPollTimer);
         irPollTimer = null;
       }
-      irPollInFlight = false;
+      irArmed = false;
+      irArmSentAt = 0;
+    }
+
+    // The read itself. Only prints when the value actually CHANGED — the
+    // controller keeps the last reading in #<_rcatc_ir>, so a sensor sitting
+    // still costs nothing on the wire back. That's what keeps the terminal
+    // (and the server log) clean while the lamp stays live.
+    function irReadBlock(port) {
+      return 'M66 P' + port + ' L0\n'
+        + 'o200 if [#5399 NE #<_rcatc_ir>]\n'
+        + '#<_rcatc_ir> = #5399\n'
+        + '(PRINT,RCATC_IR=[#5399])\n'
+        + 'o200 endif';
+    }
+
+    function sendIrCommand(command) {
+      fetch(BASE_URL + '/api/send-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          command: command,
+          meta: { sourceId: 'rapidchangeatc-irpoll', silent: true }
+        })
+      }).catch(function() {});
     }
 
     function irPollTick() {
@@ -2203,17 +2220,6 @@
       var port = getAuxPort(currentToolSensor());
       if (port === null) { stopIrPoll(); return; }
       if (irPollSuspended) return;
-
-      if (irPollInFlight) {
-        if (Date.now() - irPollSentAt < IR_POLL_TIMEOUT_MS) return;
-        irPollInFlight = false;
-        irPollMisses += 1;
-        if (irPollMisses >= IR_POLL_MAX_MISSES) {
-          setIrLamp('unknown');
-          stopIrPoll();
-        }
-        return;
-      }
 
       // Only when the machine is genuinely free. Two separate gates:
       //   * machine status — M66 syncs the planner, so a poll during motion
@@ -2225,16 +2231,26 @@
       if (lastSenderStatus && lastSenderStatus !== 'idle') return;
       if (lastJobStatus === 'running' || lastJobStatus === 'paused') return;
 
-      irPollInFlight = true;
-      irPollSentAt = Date.now();
-      fetch(BASE_URL + '/api/send-command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          command: 'M66 P' + port + ' L0\n$#=5399',
-          meta: { sourceId: 'rapidchangeatc-irpoll', silent: true }
-        })
-      }).catch(function() { irPollInFlight = false; });
+      if (irArmed) {
+        sendIrCommand(irReadBlock(port));
+        return;
+      }
+
+      if (!irArmSentAt) {
+        // Arming read: park the remembered value on something no input can
+        // return, so this first read is guaranteed to answer and we learn
+        // the current state (and that the port answers at all).
+        irArmSentAt = Date.now();
+        sendIrCommand('#<_rcatc_ir> = -99\n' + irReadBlock(port));
+        return;
+      }
+
+      // Armed but never answered — a port this board doesn't have makes M66
+      // a silent no-op, so say "unknown" instead of showing a made-up state.
+      if (Date.now() - irArmSentAt > IR_ARM_TIMEOUT_MS) {
+        setIrLamp('unknown');
+        stopIrPoll();
+      }
     }
 
     function syncIrLampSource() {
@@ -2244,8 +2260,9 @@
         setIrLamp(lastPnString.includes('P') ? 'on' : 'off');
         return;
       }
-      irPollMisses = 0;
       if (!irPollTimer) {
+        irArmed = false;
+        irArmSentAt = 0;
         irPollTimer = setInterval(irPollTick, IR_POLL_INTERVAL_MS);
         irPollTick();
       }
@@ -2256,14 +2273,15 @@
       toolSensorSelect.addEventListener('change', syncIrLampSource);
     }
 
-    // ---------- Aux input discovery ----------
+    // ---------- Aux input list ----------
     //
-    // `$I` answers with [AUX IO:<inputs>,<outputs>,<analog in>,<analog out>].
-    // Only the ports the board reports are offered: M66 against a port that
-    // doesn't exist doesn't error, it silently leaves #5399 at its previous
-    // value — which would show a stale lamp and let Auto Detect's search run
-    // on a reading that never changes.
-    var AUX_IO_FALLBACK_PORTS = 8;
+    // No controller query here on purpose: $I answers with a dozen lines
+    // ([VER], [OPT], [PLUGIN:..] ...) that would land in the terminal and the
+    // server log every time this dialog opens. The core already parses
+    // [AUX IO:..] at connect, so when it exposes the input count in the
+    // status payload the list is built from that; otherwise fall back to a
+    // plain P0-P7 list and let the operator pick what their board has.
+    var AUX_PORT_FALLBACK = 8;
     var auxInputCount = null;
 
     function toolSensorOptionExists(value) {
@@ -2293,31 +2311,13 @@
       for (var i = 0; i < count; i += 1) {
         addToolSensorOption('Aux P' + i, 'Aux In P' + i);
       }
-      // A saved port this board doesn't have stays listed and selected rather
-      // than being silently rewritten — the operator can see what's wrong.
+      // A saved port outside the list stays selectable rather than being
+      // silently rewritten to something the operator didn't choose.
       if (current !== 'Probe/TLS' && !toolSensorOptionExists(current)) {
-        addToolSensorOption(current, current + ' — not on this board');
+        addToolSensorOption(current);
       }
       sel.value = current;
       syncIrLampSource();
-    }
-
-    function requestAuxIo() {
-      fetch(BASE_URL + '/api/send-command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          command: '$I',
-          meta: { sourceId: 'rapidchangeatc-auxio', silent: true }
-        })
-      }).catch(function() {});
-      // No answer (disconnected, or a controller that doesn't report aux IO)
-      // — fall back to the old permissive list so the dialog stays usable.
-      setTimeout(function() {
-        if (auxInputCount === null && getInput('rc-tool-sensor')) {
-          rebuildToolSensorOptions(AUX_IO_FALLBACK_PORTS);
-        }
-      }, 3000);
     }
 
     var autoCalibrateButton = getInput('rc-auto-calibrate-btn');
@@ -2396,8 +2396,6 @@
           // completion listener. The safety timer covers a macro that never
           // reports back (controller reset, feed hold, unsupported M66).
           irPollSuspended = true;
-          auxReadsToIgnore = irPollInFlight ? 1 : 0;
-          irPollInFlight = false;
           auxDetectPending = true;
           if (auxDetectTimeout) clearTimeout(auxDetectTimeout);
           auxDetectTimeout = setTimeout(function() {
@@ -2485,11 +2483,12 @@
       var cncData = event.data.data;
       if (typeof cncData !== 'string') return;
 
-      // $I report — first field of [AUX IO:in,out,ain,aout] is the aux input count.
-      var auxIo = /\[AUX IO:(\d+)\s*,/i.exec(cncData);
-      if (auxIo) {
-        auxInputCount = parseInt(auxIo[1], 10);
-        rebuildToolSensorOptions(auxInputCount);
+      // Aux lamp: the read only reports back when the value changed, so any
+      // RCATC_IR line is a genuine transition (or the first arming read).
+      var irRead = /RCATC_IR=\[?\s*(-?\d+(?:\.\d+)?)/i.exec(cncData);
+      if (irRead) {
+        irArmed = true;
+        setIrLamp(parseFloat(irRead[1]) > 0 ? 'on' : 'off');
         return;
       }
 
@@ -2499,23 +2498,14 @@
         return;
       }
 
-      // #5399 carries the M66 result — either an Aux lamp poll or the tail
-      // of an Aux Auto Detect run, never both at once (the poll is held off
-      // for the duration of a run).
-      var auxRead = /PARAM:5399[^\-0-9]*(-?\d+(?:\.\d+)?)/i.exec(cncData);
-      if (auxRead) {
-        irPollInFlight = false;
-        irPollMisses = 0;
-        if (auxReadsToIgnore > 0) { auxReadsToIgnore -= 1; return; }
-        if (auxDetectPending) {
-          auxDetectPending = false;
-          if (auxDetectTimeout) { clearTimeout(auxDetectTimeout); auxDetectTimeout = null; }
-          irPollSuspended = false;
-          applyAutoDetectResult();
-          syncIrLampSource();
-        } else {
-          setIrLamp(parseFloat(auxRead[1]) > 0 ? 'on' : 'off');
-        }
+      // Aux Auto Detect ends on $#=5399 — the one place we still ask for the
+      // raw parameter, because the macro needs a definite "finished" marker.
+      if (auxDetectPending && /PARAM:5399/i.test(cncData)) {
+        auxDetectPending = false;
+        if (auxDetectTimeout) { clearTimeout(auxDetectTimeout); auxDetectTimeout = null; }
+        irPollSuspended = false;
+        applyAutoDetectResult();
+        syncIrLampSource();
       }
     };
 
@@ -2555,6 +2545,11 @@
 
       var ms = st.machineState || st.MachineState;
       if (ms) {
+        var reported = ms.inputPins ?? ms.InputPins;
+        if (typeof reported === 'number' && reported > 0 && reported !== auxInputCount) {
+          auxInputCount = reported;
+          rebuildToolSensorOptions(auxInputCount);
+        }
         lastMachineStatus = ms.status || ms.Status || lastMachineStatus;
         lastPnString = ms.Pn || '';
         // Probe/TLS reads straight off the status report; an Aux port has no
@@ -2606,8 +2601,10 @@
           if (el) el.textContent = labelMap[id];
         }
 
+        // Build the aux list up front from the fallback; a core that reports
+        // an input count replaces it the moment the first state arrives.
+        if (auxInputCount === null) rebuildToolSensorOptions(AUX_PORT_FALLBACK);
         syncIrLampSource();
-        requestAuxIo();
 
         // Seeding the form fires input/change events our dirty listeners
         // would otherwise count as user edits — clear the flag afterwards.

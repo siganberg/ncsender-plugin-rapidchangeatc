@@ -92,8 +92,12 @@ on the selected Tool Sensor:
   reads the pin with `M66 P<n> L0` after each step
 
 The IR lamp in the dialog follows the same source: the status report for
-Probe/TLS, and a throttled `M66` read (idle-only, silent) for an Aux port. If
-the controller never answers the read, the lamp greys out instead of showing a
+Probe/TLS, and an `M66` read for an Aux port. The aux read only reports back
+when the value actually changed (the controller remembers the last reading in
+`#<_rcatc_ir>`), so a sensor sitting still costs nothing on the terminal or in
+the server log. Reads are sent silently and only while the machine is idle with
+no job loaded. If the first read never answers — an aux port this board doesn't
+have makes `M66` a silent no-op — the lamp greys out instead of showing a
 misleading state.
 
 ### Events
