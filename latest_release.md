@@ -1,5 +1,4 @@
 ## What's Changed
 
 ### 🔧 Improvements
-- Auto Detect is no longer offered when the tool setter is wired to an auxiliary input, where it cannot work reliably
-- The auxiliary sensor poll no longer floods the terminal or the server log
+- Tool setter port detection now reads the available input ports directly from the controller's build info instead of continuously polling the aux sensor, reducing controller chatter and log noise
