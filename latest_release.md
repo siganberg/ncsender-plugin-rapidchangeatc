@@ -1,4 +1,5 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Stopped the auxiliary tool sensor poll from flooding the terminal and server log with repeated messages
+### 🔧 Improvements
+- Auto Detect is no longer offered when the tool setter is wired to an auxiliary input, where it cannot work reliably
+- The auxiliary sensor poll no longer floods the terminal or the server log
