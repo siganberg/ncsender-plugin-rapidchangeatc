@@ -2384,45 +2384,23 @@
             '$#=5063';
         } else {
           // Aux input: G38 can't see it — the controller only stops a probe
-          // move for the probe/toolsetter pins. Walk the same search by hand
-          // instead: step up until M66 reports the beam broken (skipped when
-          // it already is), then step up in fine increments until it clears.
-          // Ends on $#=5399, which doubles as the "measurement finished"
-          // ping the dialog waits for before reading the machine Z.
-          var read = 'M66 P' + auxPort + ' L0';
-          gcode = '(Auto Detect via Aux P' + auxPort + ' — searching for the IR release point)\n' +
-            'G91\n' +
-            read + '\n' +
-            '(If the beam is not broken yet, climb until it is — needed when the nut started below the beam.)\n' +
-            'o110 IF [#5399 EQ 0]\n' +
-            '  #<rc_steps> = 0\n' +
-            '  o111 WHILE [[#5399 EQ 0] AND [#<rc_steps> LT 100]]\n' +
-            '    G1 Z0.2 F200\n' +
-            '    #<rc_steps> = [#<rc_steps> + 1]\n' +
-            '    ' + read + '\n' +
-            '  o111 ENDWHILE\n' +
-            'o110 ENDIF\n' +
-            '(Back off in fine steps until the beam clears — this is the release point.)\n' +
-            '#<rc_steps> = 0\n' +
-            'o112 WHILE [[#5399 NE 0] AND [#<rc_steps> LT 200]]\n' +
-            '  G1 Z0.05 F150\n' +
-            '  #<rc_steps> = [#<rc_steps> + 1]\n' +
-            '  ' + read + '\n' +
-            'o112 ENDWHILE\n' +
-            'G90\n' +
-            'G4 P0.3\n' +
-            '$#=5399';
-
-          // Hold the lamp poll off the wire while the macro runs, and arm the
-          // completion listener. The safety timer covers a macro that never
-          // reports back (controller reset, feed hold, unsupported M66).
-          irPollSuspended = true;
-          auxDetectPending = true;
-          if (auxDetectTimeout) clearTimeout(auxDetectTimeout);
-          auxDetectTimeout = setTimeout(function() {
-            auxDetectPending = false;
-            irPollSuspended = false;
-          }, 120000);
+          // move for the probe/toolsetter pins — so this needs a search loop
+          // that steps and re-reads. grblHAL only allows o-word flow control
+          // (while/do/repeat) when the program is read from a file on its own
+          // filesystem; streamed line by line like ours it answers
+          //   error:80 "Flow statement only allowed in filesystem macro"
+          // and every line of the block after it fails too. Rather than ship
+          // a button that drops the controller into an error state, it says
+          // so. The search will come back driven from here — read, step,
+          // read — which needs no flow control on the controller at all.
+          notifyError('Auto Detect is not available on an Aux input yet.\n\n'
+            + 'It needs a search loop on the controller, and grblHAL only allows those '
+            + 'inside filesystem macros — a streamed one fails with error:80.\n\n'
+            + 'Use Probe/TLS for Auto Detect, or set Z, Zone 1 and Zone 2 by hand: jog '
+            + 'until the IR lamp turns red, note that Z, and enter Z-34, Z-3 and Z+2.');
+          autoCalibrateButton.disabled = false;
+          autoCalibrateButton.classList.remove('rc-button-busy');
+          return;
         }
 
         var AUTO_CALIBRATE_GCODE = formatGCode(gcode).join('\n');
