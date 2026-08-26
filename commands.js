@@ -758,6 +758,51 @@ function handleSlotCommand(commands, settings) {
   commands.splice(slotIndex, 1, ...expandedCommands);
 }
 
+// Returns:
+//   'proceed' — safe to run the ATC macro (either $31 is below the
+//               load/unload RPMs or the operator explicitly accepted).
+//   'stopped' — operator cancelled AND the host dispatched a hard
+//               stop (feed hold + soft reset + job stop). The caller
+//               should splice the M6 out silently — inserting an M0
+//               here would land AFTER the reset and leave the machine
+//               in Hold instead of Idle.
+//   'pause'   — operator cancelled on an older host that can't hard
+//               stop. Caller falls back to (MSG)+M0 so the job at
+//               least halts on the M6 instead of running the macro.
+function confirmSpindleRpmSafety(settings) {
+  if (typeof pluginContext === 'undefined'
+      || !pluginContext
+      || typeof pluginContext.getFirmwareSetting !== 'function') {
+    return 'proceed';
+  }
+  const minRpm = pluginContext.getFirmwareSetting('31');
+  if (minRpm === null || minRpm === undefined || !isFinite(minRpm)) return 'proceed';
+  const atcRpmFloor = Math.min(settings.loadRpm, settings.unloadRpm);
+  if (minRpm <= atcRpmFloor) return 'proceed';
+
+  if (typeof pluginContext.askGate !== 'function') return 'proceed';
+  const choice = pluginContext.askGate({
+    title: 'Spindle RPM clamp above ATC RPM',
+    message:
+      'Firmware $31 (minimum spindle RPM) is ' + minRpm + '. ' +
+      'The RapidChange ATC engages the collet at ' + settings.loadRpm +
+      ' RPM (load) and ' + settings.unloadRpm + ' RPM (unload).\n\n' +
+      'grblHAL will silently bump those macro RPMs up to ' + minRpm +
+      ', which can destroy the collet or the magazine.\n\n' +
+      'Lower $31 to at most ' + atcRpmFloor + ' before running a tool change.',
+    variant: 'error',
+    buttons: [
+      { value: 'proceed', label: 'Proceed at My Risk',   style: 'danger' },
+      { value: 'cancel',  label: 'Cancel Tool Change',   style: 'secondary', isDefault: true }
+    ]
+  });
+  if (choice === 'proceed') return 'proceed';
+  if (typeof pluginContext.stopJob === 'function') {
+    try { pluginContext.stopJob(); return 'stopped'; } catch (_) { /* fall through */ }
+  }
+  return 'pause';
+}
+
 function handleM6Command(commands, context, settings) {
   const m6Index = commands.findIndex(cmd => {
     if (!cmd.isOriginal) return false;
@@ -773,6 +818,26 @@ function handleM6Command(commands, context, settings) {
   const parsed = parseM6Command(m6Command.command);
 
   if (!parsed?.matched || parsed.toolNumber === null) {
+    return;
+  }
+
+  // Safety: $31 (minimum spindle RPM clamp) higher than either the load
+  // or unload RPM means grblHAL will silently bump the ATC's low-RPM
+  // engage moves up to $31 — that can destroy the collet or magazine.
+  const safety = confirmSpindleRpmSafety(settings);
+  if (safety === 'stopped') {
+    // Host dispatched feed hold + soft reset — silently drop the M6;
+    // any replacement (like an M0 pause) would arrive after the reset
+    // and leave the machine in Hold instead of Idle.
+    commands.splice(m6Index, 1);
+    return;
+  }
+  if (safety === 'pause') {
+    const abortBlock = [
+      { command: '(MSG, PLUGIN_RAPIDCHANGEATC:ABORTED_$31_ABOVE_LOAD_RPM)', isOriginal: false, displayCommand: m6Command.command.trim() },
+      { command: 'M0', isOriginal: false, displayCommand: null, meta: { silent: true } }
+    ];
+    commands.splice(m6Index, 1, ...abortBlock);
     return;
   }
 
