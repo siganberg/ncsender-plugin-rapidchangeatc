@@ -1695,6 +1695,31 @@
     var unitLabel = function() { return UNITS_PREFERENCE === 'imperial' ? 'in' : 'mm'; };
     var feedLabel = function() { return UNITS_PREFERENCE === 'imperial' ? 'in/min' : 'mm/min'; };
 
+    // min/max/step in the markup are authored in mm, because mm is what gets
+    // stored. In imperial the displayed magnitudes shrink 25.4x and those
+    // bounds turn hostile — min="1" on Slot Distance becomes a 25.4 mm floor,
+    // and step="1" rejects the 19.6850 in/min that 500 mm/min displays as.
+    // Rescale the bounds and drop to step="any"; metric is left as authored.
+    var UNIT_INPUT_IDS = [
+      'rc-slot-distance', 'rc-slot1-x', 'rc-slot1-y', 'rc-zengagement',
+      'rc-zone1', 'rc-zone2', 'rc-z-retreat',
+      'rc-toolsetter-x', 'rc-toolsetter-y', 'rc-z-probe-start',
+      'rc-seek-distance', 'rc-seek-feedrate',
+      'rc-manualtool-x', 'rc-manualtool-y'
+    ];
+    var applyUnitInputConstraints = function() {
+      if (UNITS_PREFERENCE !== 'imperial') return;
+      UNIT_INPUT_IDS.forEach(function(id) {
+        var el = getInput(id);
+        if (!el) return;
+        ['min', 'max'].forEach(function(attr) {
+          var v = Number.parseFloat(el.getAttribute(attr));
+          if (Number.isFinite(v)) el.setAttribute(attr, (v / MM_PER_INCH).toFixed(4));
+        });
+        el.setAttribute('step', 'any');
+      });
+    };
+
     var parseCoordinateString = function(raw) {
       if (typeof raw === 'string' && raw.length > 0) {
         var parts = raw.split(',').map(function(part) { return Number.parseFloat(part.trim()); });
@@ -2706,6 +2731,7 @@
       .then(function(s) { UNITS_PREFERENCE = s.unitsPreference || 'metric'; })
       .catch(function() {})
       .finally(function() {
+        applyUnitInputConstraints();
         applyInitialSettings();
         updateTlsAfterHomeWarning();
         updateRpm31Warning();
