@@ -327,12 +327,176 @@
     color: var(--color-text-primary);
     margin: 0;
   }
+  .rc-option {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .rc-option + .rc-option {
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+  }
+  .rc-field-note {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+  .rc-field-note code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--color-surface-muted);
+  }
   .rc-card-help {
     margin: 0;
     font-size: 0.95rem;
     color: var(--color-text-secondary);
     line-height: 1.45;
   }
+
+  /* Magazine tabs, the classic shape: tabs rounded on top only, a rule
+     separating them from the panel below, and the active tab breaking that
+     rule so it joins the content it belongs to. The cards sit inside that
+     panel. */
+  .rc-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .rc-mag-tabset {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+  }
+  .rc-mag-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 3px;
+    /* Flush left: the first tab's edge is the panel's left edge. */
+    padding-left: 0;
+    margin-bottom: -1px;
+    /* This strip and the panel below it are flex items in a column; without
+       this they are free to shrink to nothing. */
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+  .rc-mag-tab {
+    appearance: none;
+    background: transparent !important;
+    box-shadow: none !important;
+    font-family: inherit;
+    cursor: pointer;
+    min-height: 0 !important;
+    border: 1px solid color-mix(in srgb, var(--color-text-secondary) 20%, transparent) !important;
+    border-bottom: none !important;
+    border-radius: 9px 9px 0 0 !important;
+  }
+  .rc-mag-tab {
+    /* The active tab's underline is absolutely positioned against this. Drop
+       it and the underline anchors to the full-width strip instead. */
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 16px !important;
+    color: var(--color-text-secondary) !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    white-space: nowrap;
+  }
+  .rc-mag-tab:hover { color: var(--color-text-primary) !important; }
+  /* The active tab covers the panel's top border, so the two read as one. */
+  .rc-mag-tab.active {
+    color: var(--color-text-primary) !important;
+    background: var(--color-surface) !important;
+    padding-bottom: 13px !important;
+  }
+  .rc-mag-tab.active::after {
+    content: '';
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 5px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--color-accent);
+  }
+  .rc-mag-tab-range {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+  .rc-mag-tab-unset { color: var(--color-warning, #d99a2b); }
+  /* A tab like the others in shape and height, inverted in colour: accent
+     border and accent glyph on the same background the inactive tabs use. */
+  .rc-mag-add {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0 15px !important;
+    min-height: 0 !important;
+    border: 1px solid var(--color-accent) !important;
+    border-bottom: none !important;
+    border-radius: 9px 9px 0 0 !important;
+    background: transparent !important;
+    color: var(--color-accent) !important;
+    font-family: inherit;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    box-shadow: none !important;
+    cursor: pointer;
+  }
+  .rc-mag-add:hover { background: color-mix(in srgb, var(--color-accent) 14%, transparent) !important; }
+  /* The tab panel: the cards for whichever magazine is selected. */
+  .rc-mag-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 0 0 auto;
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--color-text-secondary) 20%, transparent);
+    border-radius: 0 10px 10px 10px;
+    background: var(--color-surface);
+  }
+  /* Cards inside the panel: no second frame around each one. */
+  .rc-mag-body .rc-card {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    padding: 4px 0;
+  }
+  .rc-mag-body .rc-card + .rc-card {
+    border-top: 1px solid color-mix(in srgb, var(--color-text-secondary) 14%, transparent);
+    padding-top: 14px;
+  }
+  /* Removing a magazine happens on its own tab, the way a closable tab works. */
+  .rc-mag-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    margin-left: 2px;
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .rc-mag-close:hover {
+    background: color-mix(in srgb, var(--color-danger, #e05252) 18%, transparent);
+    color: var(--color-danger, #e05252);
+  }
+  .rc-mag-tab.active .rc-mag-close { color: var(--color-danger, #e05252); }
 
   /* Rows / fields */
   .rc-row {
@@ -428,6 +592,12 @@
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 15%, transparent);
   }
+  .rc-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+  }
   .rc-input:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -475,8 +645,16 @@
   }
   .rc-btn:hover:not(:disabled) { filter: brightness(1.08); }
   .rc-btn:active:not(:disabled) { transform: translateY(1px); }
-  .rc-btn:disabled,
+  .rc-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(1);
+  }
   .rc-btn.rc-button-busy { opacity: 0.6; cursor: progress; filter: none; }
+  /* A whole row that has nothing to offer right now — the Auto Detect row
+     while this magazine takes its heights from magazine 1. */
+  .rc-row-inactive { opacity: 0.45; }
+  .rc-row-inactive .rc-probe-led { filter: grayscale(1); }
   .rc-btn-sm { padding: 6px 12px; font-size: 0.8rem; }
   .rc-btn-ghost {
     background: var(--color-surface-muted) !important;
@@ -904,14 +1082,27 @@
         <span class="rc-units-badge" id="rc-units-badge" style="display: none;"></span>
       </div>
       <nav class="rc-sidebar-nav">
-        <button type="button" class="rc-nav-btn active" data-nav="magazine">
+        <button type="button" class="rc-nav-btn active" data-nav="general">
+          <span class="rc-nav-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v6"/>
+              <path d="m8 7 4-4 4 4"/>
+              <path d="M12 21v-6"/>
+              <path d="m8 17 4 4 4-4"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+          </span>
+          <span class="rc-nav-label">General</span>
+          <span class="rc-tab-caret" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="rc-nav-btn" data-nav="magazine">
           <span class="rc-nav-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="6" width="18" height="12" rx="2"/>
               <path d="M7 10v4M11 10v4M15 10v4M19 10v4"/>
             </svg>
           </span>
-          <span class="rc-nav-label">Magazine</span>
+          <span class="rc-nav-label">Magazines</span>
           <span class="rc-tab-caret" aria-hidden="true"></span>
         </button>
         <button type="button" class="rc-nav-btn" data-nav="tls">
@@ -963,9 +1154,9 @@
     </aside>
 
     <!-- ===================== MAGAZINE ===================== -->
-    <section class="rc-content active" data-view="magazine">
+    <section class="rc-content" data-view="magazine">
       <header class="rc-panel-header">
-        <h2 class="rc-panel-title">Magazine Setup</h2>
+        <h2 class="rc-panel-title">Magazines</h2>
         <!-- Header widgets — Machine DRO (left) + Step & Jog (right). Both
              stay pinned above the scrolling panel; omitted on tabs that
              don't need them (Probe Tool, Events). -->
@@ -990,168 +1181,199 @@
       </header>
 
       <div class="rc-panel">
-        <!-- Magazine hardware -->
-        <div class="rc-card">
-          <h3 class="rc-card-title">Magazine Settings</h3>
-          <div class="rc-row-3">
-            <div class="rc-field">
-              <label for="rc-collet-size">Collet Size</label>
-              <select class="rc-select" id="rc-collet-size">
-                <option value="ER11" disabled>ER11</option>
-                <option value="ER16">ER16</option>
-                <option value="ER20" selected>ER20</option>
-                <option value="ER25" disabled>ER25</option>
-                <option value="ER32" disabled>ER32</option>
-              </select>
+        <!-- One tab per magazine. Slot numbers run straight through them, so
+             the tab itself shows the range it owns — the operator never has to
+             work out that magazine 2's third slot is T9. Only the selected
+             magazine's fields are on screen; switching tabs swaps the values
+             in and out of the same inputs. -->
+        <!-- Tabs and their panel are one element: the surrounding panel is a
+             flex column with a gap, which would otherwise open a space between
+             the tabs and the content they belong to. -->
+        <div class="rc-mag-tabset">
+        <div class="rc-mag-tabs" id="rc-mag-tabs"></div>
+        <div class="rc-mag-body">
+          <!-- Magazine hardware -->
+          <div class="rc-card">
+            <h3 class="rc-card-title" id="rc-mag-title">Magazine Settings</h3>
+            <div class="rc-row-3">
+              <div class="rc-field">
+                <label for="rc-collet-size">Collet Size</label>
+                <select class="rc-select" id="rc-collet-size">
+                  <option value="ER11" disabled>ER11</option>
+                  <option value="ER16">ER16</option>
+                  <option value="ER20" selected>ER20</option>
+                  <option value="ER25" disabled>ER25</option>
+                  <option value="ER32" disabled>ER32</option>
+                </select>
+              </div>
+              <div class="rc-field">
+                <label for="rc-slots">Number of Slots</label>
+                <select class="rc-select" id="rc-slots">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6" selected>6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                </select>
+              </div>
+              <div class="rc-field">
+                <label for="rc-model-select">Model</label>
+                <select class="rc-select" id="rc-model-select">
+                  <option value="Basic">Basic</option>
+                  <option value="Pro" selected>Pro</option>
+                  <option value="Premium">Premium</option>
+                </select>
+              </div>
             </div>
-            <div class="rc-field">
-              <label for="rc-slots">Number of Slots</label>
-              <select class="rc-select" id="rc-slots">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6" selected>6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-              </select>
+
+            <div class="rc-field-inline">
+              <label>Orientation</label>
+              <div class="rc-slider-toggle" id="rc-orientation-toggle">
+                <span class="rc-slider-option active" data-value="Y">Y</span>
+                <span class="rc-slider-option" data-value="X">X</span>
+                <div class="rc-slider-indicator"></div>
+              </div>
             </div>
-            <div class="rc-field">
-              <label for="rc-model-select">Model</label>
-              <select class="rc-select" id="rc-model-select">
-                <option value="Basic">Basic</option>
-                <option value="Pro" selected>Pro</option>
-                <option value="Premium">Premium</option>
-              </select>
+            <div class="rc-field-inline">
+              <label title="Slot 1 → 2">Direction</label>
+              <div class="rc-slider-toggle" id="rc-direction-toggle">
+                <span class="rc-slider-option active" data-value="Negative">−</span>
+                <span class="rc-slider-option" data-value="Positive">+</span>
+                <div class="rc-slider-indicator"></div>
+              </div>
+            </div>
+            <div class="rc-field-inline">
+              <label id="rc-label-slot-distance">Slot Distance (mm)</label>
+              <input type="number" class="rc-input" id="rc-slot-distance" value="45" min="1" max="500" step="0.1">
             </div>
           </div>
 
-          <div class="rc-field-inline">
-            <label>Orientation</label>
-            <div class="rc-slider-toggle" id="rc-orientation-toggle">
-              <span class="rc-slider-option active" data-value="Y">Y</span>
-              <span class="rc-slider-option" data-value="X">X</span>
-              <div class="rc-slider-indicator"></div>
+          <!-- Slot 1 reference position + IR-derived zones -->
+          <div class="rc-card">
+            <h3 class="rc-card-title" id="rc-slot1-title">Slot 1 Position</h3>
+            <p class="rc-card-help">Machine XY of slot 1 plus the Z at which the collet nut engages. Jog over slot 1 and press Grab current, or lower the nut into the IR beam and let Auto Detect calculate Z and both zones.</p>
+
+            <!-- A second magazine is usually the same product on the same
+                 spoilboard, so its engagement height and zones match the first
+                 and only X/Y differ. This keeps them in step; turn it off and the
+                 magazine keeps its own, from its own Auto Detect. Hidden on
+                 magazine 1, which has nothing to follow. -->
+            <div class="rc-field-inline" id="rc-same-z-row" style="display: none;">
+              <label for="rc-same-z" title="Take Z, Zone 1 and Zone 2 from Magazine 1">Same Z &amp; zones as Magazine 1</label>
+              <label class="rc-toggle">
+                <input type="checkbox" id="rc-same-z" checked>
+                <span class="rc-toggle-slider"></span>
+              </label>
             </div>
-          </div>
-          <div class="rc-field-inline">
-            <label title="Slot 1 → 2">Direction</label>
-            <div class="rc-slider-toggle" id="rc-direction-toggle">
-              <span class="rc-slider-option active" data-value="Negative">−</span>
-              <span class="rc-slider-option" data-value="Positive">+</span>
-              <div class="rc-slider-indicator"></div>
+            <div>
+              <label class="rc-group-label">Coordinates</label>
+              <p class="rc-field-note" id="rc-slot1-suggest" style="display: none;"></p>
+              <div class="rc-coord-row">
+                <div class="rc-coord">
+                  <span class="rc-coord-label">X</span>
+                  <input type="number" class="rc-input" id="rc-slot1-x" value="0" step="0.001">
+                </div>
+                <div class="rc-coord">
+                  <span class="rc-coord-label">Y</span>
+                  <input type="number" class="rc-input" id="rc-slot1-y" value="0" step="0.001">
+                </div>
+                <div class="rc-coord">
+                  <span class="rc-coord-label">Z</span>
+                  <input type="number" class="rc-input" id="rc-zengagement" value="-100" step="0.001">
+                </div>
+                <button type="button" class="rc-btn rc-btn-sm" id="rc-slot1-grab">Grab current</button>
+              </div>
             </div>
-          </div>
-          <div class="rc-field-inline">
-            <label id="rc-label-slot-distance">Slot Distance (mm)</label>
-            <input type="number" class="rc-input" id="rc-slot-distance" value="45" min="1" max="500" step="0.1">
+
+            <div>
+              <label class="rc-group-label">Sensor Zones</label>
+              <div class="rc-row">
+                <div class="rc-coord">
+                  <span class="rc-coord-label" style="min-width: 52px;">Zone 1</span>
+                  <input type="number" class="rc-input" id="rc-zone1" value="-27" step="0.001">
+                </div>
+                <div class="rc-coord">
+                  <span class="rc-coord-label" style="min-width: 52px;">Zone 2</span>
+                  <input type="number" class="rc-input" id="rc-zone2" value="-22" step="0.001">
+                </div>
+              </div>
+            </div>
+
+            <!-- Auto Detect is the easy path, but it depends on the sensor
+                 being readable from here — an aux port that can't be polled
+                 reliably, or a machine mid-setup, leaves the operator with no
+                 way to fill these in. All three values are fixed offsets from
+                 one measurement, so the manual method is short: this spells it
+                 out rather than making them dig for it. -->
+            <details class="rc-howto">
+              <summary>Setting these by hand (no Auto Detect)</summary>
+              <div class="rc-howto-body">
+                <p>
+                  All three values are fixed offsets from a single reference — the
+                  <strong>release point</strong>, the height at which the collet nut stops blocking
+                  the IR beam. Auto Detect just measures it for you.
+                </p>
+                <ol>
+                  <li>Install a collet, nut and bit, and jog the spindle over <strong>Slot 1</strong>.</li>
+                  <li>Lower the spindle until the beam is <strong>blocked</strong>. Watch either the IR lamp
+                      above (it turns red) or the <strong>LED on the magazine's IR receiver</strong> — the
+                      physical LED is the one to trust when the aux port can't be polled reliably, since it
+                      reflects the sensor itself rather than what the controller managed to report.</li>
+                  <li>Now move back <strong>up slowly</strong> — fine jog steps (0.1&nbsp;mm or less) —
+                      watching the LED the whole way, and stop the <strong>moment the beam clears</strong>
+                      and the LED changes back. Note the <strong>machine Z</strong>: that's the release
+                      point. Going up slowly is what makes the reading repeatable; overshoot it and you
+                      have to drop back below the beam and creep up again.</li>
+                </ol>
+                <div class="rc-howto-math">
+                  <div><span>Z (this card)</span><span>release − 34&nbsp;mm</span></div>
+                  <div><span>Zone 1</span><span>release − 3&nbsp;mm</span></div>
+                  <div><span>Zone 2</span><span>release + 2&nbsp;mm</span></div>
+                </div>
+                <p class="rc-howto-note">
+                  Always approach <em>upward</em>. The height where the beam breaks going down isn't quite
+                  where it clears going up, and Auto Detect always measures the clearing edge — approaching
+                  the same way keeps a hand-measured value consistent with it. Zone 1 sits below the release
+                  point (beam blocked, tool present) and Zone 2 above it (beam clear); the tool change checks
+                  both, so a good load reads blocked at Zone 1 and clear at Zone 2.
+                </p>
+              </div>
+            </details>
+
+            <div class="rc-field-inline" id="rc-auto-detect-row" style="margin-top: 12px;">
+              <label>Auto Detect from IR sensor</label>
+              <div class="rc-inline-actions">
+                <span class="rc-ir-lamp">IR <span id="rc-probe-led" class="rc-probe-led"></span></span>
+                <button type="button" class="rc-btn rc-btn-sm" id="rc-auto-calibrate-btn">Auto Detect</button>
+                <button type="button" class="rc-btn rc-btn-sm rc-btn-ghost rc-btn-help" id="rc-auto-detect-help">?</button>
+              </div>
+            </div>
+            <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
+              With the collet, nut, and bit installed on the spindle, position the spindle over Slot 1 of the magazine. Use the Jog controls to lower the spindle until the nut blocks the IR sensor, while keeping the nut centered inside Slot 1 as much as possible. Watch the <b>IR</b> indicator next to this button — it stays green while the beam is clear and turns <b>red</b> the moment the nut breaks it. Once it's red, click Auto Detect — the plugin will calculate Z, Zone 1, and Zone 2 for you. If the sensor can't be read from here, open <b>Setting these by hand</b> below the zones — the same three values can be worked out from one jogged measurement. The lamp only follows a <b>Probe/TLS</b> sensor — an Aux input isn't reported live, so it shows as unlit there and the by-hand method is the way to set the values.
+            </div>
           </div>
         </div>
-
-        <!-- Slot 1 reference position + IR-derived zones -->
-        <div class="rc-card">
-          <h3 class="rc-card-title">Slot 1 Position</h3>
-          <p class="rc-card-help">Machine XY of slot 1 plus the Z at which the collet nut engages. Jog over slot 1 and press Grab current, or lower the nut into the IR beam and let Auto Detect calculate Z and both zones.</p>
-          <div>
-            <label class="rc-group-label">Coordinates</label>
-            <div class="rc-coord-row">
-              <div class="rc-coord">
-                <span class="rc-coord-label">X</span>
-                <input type="number" class="rc-input" id="rc-slot1-x" value="0" step="0.001">
-              </div>
-              <div class="rc-coord">
-                <span class="rc-coord-label">Y</span>
-                <input type="number" class="rc-input" id="rc-slot1-y" value="0" step="0.001">
-              </div>
-              <div class="rc-coord">
-                <span class="rc-coord-label">Z</span>
-                <input type="number" class="rc-input" id="rc-zengagement" value="-100" step="0.001">
-              </div>
-              <button type="button" class="rc-btn rc-btn-sm" id="rc-slot1-grab">Grab current</button>
-            </div>
-          </div>
-
-          <div>
-            <label class="rc-group-label">Sensor Zones</label>
-            <div class="rc-row">
-              <div class="rc-coord">
-                <span class="rc-coord-label" style="min-width: 52px;">Zone 1</span>
-                <input type="number" class="rc-input" id="rc-zone1" value="-27" step="0.001">
-              </div>
-              <div class="rc-coord">
-                <span class="rc-coord-label" style="min-width: 52px;">Zone 2</span>
-                <input type="number" class="rc-input" id="rc-zone2" value="-22" step="0.001">
-              </div>
-            </div>
-          </div>
-
-          <!-- Auto Detect is the easy path, but it depends on the sensor
-               being readable from here — an aux port that can't be polled
-               reliably, or a machine mid-setup, leaves the operator with no
-               way to fill these in. All three values are fixed offsets from
-               one measurement, so the manual method is short: this spells it
-               out rather than making them dig for it. -->
-          <details class="rc-howto">
-            <summary>Setting these by hand (no Auto Detect)</summary>
-            <div class="rc-howto-body">
-              <p>
-                All three values are fixed offsets from a single reference — the
-                <strong>release point</strong>, the height at which the collet nut stops blocking
-                the IR beam. Auto Detect just measures it for you.
-              </p>
-              <ol>
-                <li>Install a collet, nut and bit, and jog the spindle over <strong>Slot 1</strong>.</li>
-                <li>Lower the spindle until the beam is <strong>blocked</strong>. Watch either the IR lamp
-                    above (it turns red) or the <strong>LED on the magazine's IR receiver</strong> — the
-                    physical LED is the one to trust when the aux port can't be polled reliably, since it
-                    reflects the sensor itself rather than what the controller managed to report.</li>
-                <li>Now move back <strong>up slowly</strong> — fine jog steps (0.1&nbsp;mm or less) —
-                    watching the LED the whole way, and stop the <strong>moment the beam clears</strong>
-                    and the LED changes back. Note the <strong>machine Z</strong>: that's the release
-                    point. Going up slowly is what makes the reading repeatable; overshoot it and you
-                    have to drop back below the beam and creep up again.</li>
-              </ol>
-              <div class="rc-howto-math">
-                <div><span>Z (this card)</span><span>release − 34&nbsp;mm</span></div>
-                <div><span>Zone 1</span><span>release − 3&nbsp;mm</span></div>
-                <div><span>Zone 2</span><span>release + 2&nbsp;mm</span></div>
-              </div>
-              <p class="rc-howto-note">
-                Always approach <em>upward</em>. The height where the beam breaks going down isn't quite
-                where it clears going up, and Auto Detect always measures the clearing edge — approaching
-                the same way keeps a hand-measured value consistent with it. Zone 1 sits below the release
-                point (beam blocked, tool present) and Zone 2 above it (beam clear); the tool change checks
-                both, so a good load reads blocked at Zone 1 and clear at Zone 2.
-              </p>
-            </div>
-          </details>
-
-          <!-- Auto Detect reads whichever port is selected here to build its
-               sensor-check g-code, so the port has to be set first — it sits
-               directly above the button instead of down in Tool Change Motion. -->
-          <div class="rc-field-inline" style="margin-top: 12px;">
-            <label for="rc-tool-sensor">Tool Sensor / IR Port</label>
-            <!-- Aux entries are filled in at runtime — from the core's
-                 reported aux-input count when it exposes one, otherwise a
-                 plain P0-P7 list. -->
-            <select class="rc-select" id="rc-tool-sensor">
-              <option value="Probe/TLS" selected>Probe/TLS</option>
-            </select>
-          </div>
-          <div class="rc-field-inline">
-            <label>Auto Detect from IR sensor</label>
-            <div class="rc-inline-actions">
-              <span class="rc-ir-lamp">IR <span id="rc-probe-led" class="rc-probe-led"></span></span>
-              <button type="button" class="rc-btn rc-btn-sm" id="rc-auto-calibrate-btn">Auto Detect</button>
-              <button type="button" class="rc-btn rc-btn-sm rc-btn-ghost rc-btn-help" id="rc-auto-detect-help">?</button>
-            </div>
-          </div>
-          <div class="rc-tooltip-popup" id="rc-auto-detect-tooltip">
-            With the collet, nut, and bit installed on the spindle, position the spindle over Slot 1 of the magazine. Use the Jog controls to lower the spindle until the nut blocks the IR sensor, while keeping the nut centered inside Slot 1 as much as possible. Watch the <b>IR</b> indicator next to this button — it stays green while the beam is clear and turns <b>red</b> the moment the nut breaks it. Once it's red, click Auto Detect — the plugin will calculate Z, Zone 1, and Zone 2 for you. If the sensor can't be read from here, open <b>Setting these by hand</b> below the zones — the same three values can be worked out from one jogged measurement. The lamp only follows a <b>Probe/TLS</b> sensor — an Aux input isn't reported live, so it shows as unlit there and the by-hand method is the way to set the values.
-          </div>
         </div>
 
+      </div>
+
+      <footer class="rc-panel-footer">
+        <button type="button" class="rc-save-btn" data-save>Save</button>
+      </footer>
+    </section>
+
+    <!-- ===================== GENERAL ===================== -->
+    <!-- One spindle, one set of engage moves — these apply to every magazine,
+         which is why they are not on the Magazine tab. -->
+    <section class="rc-content active" data-view="general">
+      <header class="rc-panel-header">
+        <h2 class="rc-panel-title">General</h2>
+      </header>
+
+      <div class="rc-panel">
         <!-- Tool change motion -->
         <div class="rc-card">
           <h3 class="rc-card-title">Tool Change Motion</h3>
@@ -1198,25 +1420,58 @@
               Lower <code>$31</code> to at most <span id="rc-rpm31-safe">?</span> before running a tool change.
             </div>
           </div>
+        </div>
 
-          <div class="rc-field-inline" style="margin-top: 4px;">
-            <label title="Wait for spindle to reach its speed before unloading/loading bits">Spindle At-Speed</label>
-            <label class="rc-toggle">
-              <input type="checkbox" id="rc-spindle-at-speed">
-              <span class="rc-toggle-slider"></span>
-            </label>
+        <!-- Sensor -->
+        <!-- One port for the whole machine: the tool-change sensor checks and
+             every magazine's Auto Detect all read it, so it lives here rather
+             than on any one magazine. -->
+        <div class="rc-card">
+          <h3 class="rc-card-title">Sensor</h3>
+          <div class="rc-field-inline">
+            <label for="rc-tool-sensor">IR Port</label>
+            <!-- Aux entries are filled in at runtime — from the core's
+                 reported aux-input count when it exposes one, otherwise a
+                 plain P0-P7 list. -->
+            <select class="rc-select" id="rc-tool-sensor">
+              <option value="Probe/TLS" selected>Probe/TLS</option>
+            </select>
           </div>
         </div>
 
         <!-- Options -->
         <div class="rc-card">
           <h3 class="rc-card-title">Options</h3>
-          <div class="rc-field-inline">
-            <label>Show G-Code Commands on Terminal</label>
-            <label class="rc-toggle">
-              <input type="checkbox" id="rc-show-macro-command">
-              <span class="rc-toggle-slider"></span>
-            </label>
+
+          <div class="rc-option">
+            <div class="rc-field-inline">
+              <label for="rc-spindle-at-speed">Spindle At-Speed</label>
+              <label class="rc-toggle">
+                <input type="checkbox" id="rc-spindle-at-speed" checked>
+                <span class="rc-toggle-slider"></span>
+              </label>
+            </div>
+            <p class="rc-field-note">
+              On (default): the tool change waits for the spindle to reach the commanded RPM before
+              plunging. Needs a VFD that reports its speed back to the controller. Off: it does not
+              wait, which makes tool changes quicker, and the plugin emits a <code>G65 P6</code>
+              before the <code>M3</code>/<code>M4</code> and before the <code>M5</code>.
+            </p>
+          </div>
+
+          <div class="rc-option">
+            <div class="rc-field-inline">
+              <label for="rc-show-macro-command">Show G-Code Commands on Terminal</label>
+              <label class="rc-toggle">
+                <input type="checkbox" id="rc-show-macro-command">
+                <span class="rc-toggle-slider"></span>
+              </label>
+            </div>
+            <p class="rc-field-note">
+              One <code>M6</code> becomes dozens of generated lines. Off, the terminal shows only
+              your <code>M6 T3</code> and runs the rest silently. On, every generated line is
+              printed as it is sent, which helps when dialling a magazine in.
+            </p>
           </div>
         </div>
       </div>
@@ -1439,6 +1694,18 @@
     </section>
   </div>
 
+  <!-- Removing a magazine renumbers every slot after it, so it asks first. -->
+  <div class="rc-modal-backdrop" id="rc-remove-modal">
+    <div class="rc-modal-card">
+      <h3 class="rc-modal-title" id="rc-remove-title">Remove magazine?</h3>
+      <p class="rc-modal-body" id="rc-remove-body"></p>
+      <div class="rc-modal-actions">
+        <button type="button" class="rc-btn rc-btn-ghost" id="rc-remove-cancel">Cancel</button>
+        <button type="button" class="rc-btn rc-btn-danger" id="rc-remove-confirm">Remove</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Confirm modal used when the user tries to close with unsaved changes. -->
   <div class="rc-modal-backdrop" id="rc-close-modal">
     <div class="rc-modal-card">
@@ -1657,8 +1924,14 @@
         });
         if (target === 'events' || target === 'probe') setTimeout(layoutMonacoEditors, 0);
         // The lamp lives on the Magazine panel — don't poll the controller
-        // while the operator is looking at something else.
-        if (target === 'magazine') syncIrLampSource();
+        // while the operator is looking at something else. The slider pills
+        // need the same treatment as the editors above: they are set while the
+        // panel is hidden, where everything measures zero, so the Y/X and -/+
+        // pills come up invisible until they are measured on screen.
+        if (target === 'magazine') {
+          syncIrLampSource();
+          setTimeout(refreshMagazineSliders, 0);
+        }
       });
     });
 
@@ -1789,25 +2062,388 @@
       }
     };
 
-    var applyInitialSettings = function() {
+    // ---------- Magazines ----------
+    //
+    // A machine can carry more than one magazine, and slot numbers run straight
+    // through them: two magazines of 6 give slots 1-6 and 7-12. Only the
+    // selected magazine is on screen — switching tabs reads the visible fields
+    // back into the model and writes the next magazine's values in, so every
+    // control here (Grab, Auto Detect, unit handling) keeps working on exactly
+    // one magazine: the active one.
+    var MAX_MAGAZINES = 3;
+    var magazines = [];
+    var activeMagazine = 0;
+
+    var defaultMagazine = function() {
+      return {
+        colletSize: 'ER20', model: 'Pro', slots: 6,
+        orientation: 'Y', direction: 'Negative', slotDistance: 45,
+        slot1: { x: 0, y: 0 },
+        zEngagement: -50, zone1: -27, zone2: -22,
+        useFirstZ: true
+      };
+    };
+
+    var numberOr = function(value, fallback) {
+      var num = Number(value);
+      return isFinite(num) ? num : fallback;
+    };
+
+    // Settings saved before multiple magazines existed have the one magazine
+    // spread across the top level as `pockets` / `pocket1` / `pocketDistance`.
+    var magazinesFromConfig = function(cfg) {
+      var base = defaultMagazine();
+      var list = Array.isArray(cfg.magazines) && cfg.magazines.length > 0
+        ? cfg.magazines.slice(0, MAX_MAGAZINES)
+        : [{
+            colletSize: cfg.colletSize, model: cfg.model, slots: cfg.pockets,
+            orientation: cfg.orientation, direction: cfg.direction,
+            slotDistance: cfg.pocketDistance, slot1: cfg.pocket1,
+            zEngagement: cfg.zEngagement, zone1: cfg.zone1, zone2: cfg.zone2
+          }];
+
+      return list.map(function(mag, index) {
+        mag = mag || {};
+        var slot1 = mag.slot1 || {};
+        return {
+          colletSize: mag.colletSize || base.colletSize,
+          model: mag.model || base.model,
+          slots: numberOr(mag.slots, base.slots),
+          orientation: mag.orientation || base.orientation,
+          direction: mag.direction || base.direction,
+          slotDistance: numberOr(mag.slotDistance, base.slotDistance),
+          slot1: { x: numberOr(slot1.x, 0), y: numberOr(slot1.y, 0) },
+          zEngagement: numberOr(mag.zEngagement, base.zEngagement),
+          zone1: numberOr(mag.zone1, base.zone1),
+          zone2: numberOr(mag.zone2, base.zone2),
+          // Magazine 1 has nothing to follow.
+          useFirstZ: index === 0 ? false : (mag.useFirstZ !== false)
+        };
+      });
+    };
+
+    var totalSlots = function() {
+      return magazines.reduce(function(sum, mag) { return sum + numberOr(mag.slots, 0); }, 0);
+    };
+
+    // First and last slot number owned by a magazine.
+    var slotRange = function(index) {
+      var first = 1;
+      for (var i = 0; i < index; i++) first += numberOr(magazines[i].slots, 0);
+      return { first: first, last: first + numberOr(magazines[index].slots, 0) - 1 };
+    };
+
+    // Where the next magazine would start if it were bolted to the end of this
+    // one, carrying on the same line at the same spacing. Magazines are usually
+    // mounted in a row like that, so it is a good first guess; it is only ever
+    // a guess, and the operator can type over it or press Grab current.
+    var nextMagazineStart = function(prev) {
+      var direction = prev.direction === 'Negative' ? -1 : 1;
+      var offset = prev.slots * prev.slotDistance * direction;
+      return prev.orientation === 'Y'
+        ? { x: prev.slot1.x, y: prev.slot1.y + offset }
+        : { x: prev.slot1.x + offset, y: prev.slot1.y };
+    };
+
+    // Which magazines are still sitting on that guess rather than a real
+    // position. UI state only: it is never saved, and any edit clears it.
+    var suggestedMagazines = [];
+
+    var clearSuggestion = function(index) {
+      if (!suggestedMagazines[index]) return;
+      suggestedMagazines[index] = false;
+      updateSuggestionNote();
+      renderMagazineTabs();
+    };
+
+    var updateSuggestionNote = function() {
+      var note = document.getElementById('rc-slot1-suggest');
+      if (!note) return;
+      if (!suggestedMagazines[activeMagazine] || activeMagazine === 0) {
+        note.style.display = 'none';
+        return;
+      }
+      var prev = magazines[activeMagazine - 1];
+      note.style.display = '';
+      note.textContent = 'Suggested position, carrying on from Magazine ' + activeMagazine +
+        ' along ' + prev.orientation + ' at ' + formatCoordinate(prev.slotDistance) + ' ' +
+        unitLabel() + ' spacing. Adjust it or press Grab current if the magazine sits elsewhere.';
+    };
+
+    var readMagazineForm = function() {
       var colletSelect = getInput('rc-collet-size');
-      if (colletSelect && initialConfig.colletSize) {
-        colletSelect.value = initialConfig.colletSize;
-      }
-
       var slotsSelect = getInput('rc-slots');
-      if (slotsSelect && initialConfig.pockets) {
-        slotsSelect.value = String(initialConfig.pockets);
-      }
-
       var modelSelect = getInput('rc-model-select');
-      if (modelSelect && initialConfig.model) {
-        modelSelect.value = initialConfig.model;
+      var slotDistanceInput = getInput('rc-slot-distance');
+      var slot1X = getInput('rc-slot1-x');
+      var slot1Y = getInput('rc-slot1-y');
+      var zEngagementInput = getInput('rc-zengagement');
+      var zone1Input = getInput('rc-zone1');
+      var zone2Input = getInput('rc-zone2');
+      var sameZToggle = getInput('rc-same-z');
+      var current = magazines[activeMagazine] || defaultMagazine();
+
+      return {
+        colletSize: colletSelect ? colletSelect.value : current.colletSize,
+        model: modelSelect ? modelSelect.value : current.model,
+        slots: slotsSelect ? getParseInt(slotsSelect.value) : current.slots,
+        orientation: getSliderValue('rc-orientation-toggle') || current.orientation,
+        direction: getSliderValue('rc-direction-toggle') || current.direction,
+        slotDistance: slotDistanceInput ? toMetric(getParseFloat(slotDistanceInput.value)) : current.slotDistance,
+        slot1: {
+          x: slot1X ? toMetric(getParseFloat(slot1X.value)) : current.slot1.x,
+          y: slot1Y ? toMetric(getParseFloat(slot1Y.value)) : current.slot1.y
+        },
+        zEngagement: zEngagementInput ? toMetric(getParseFloat(zEngagementInput.value)) : current.zEngagement,
+        zone1: zone1Input ? toMetric(getParseFloat(zone1Input.value)) : current.zone1,
+        zone2: zone2Input ? toMetric(getParseFloat(zone2Input.value)) : current.zone2,
+        useFirstZ: activeMagazine === 0 ? false : (sameZToggle ? sameZToggle.checked : true)
+      };
+    };
+
+    var writeMagazineForm = function(mag) {
+      if (!mag) return;
+      var colletSelect = getInput('rc-collet-size');
+      if (colletSelect) colletSelect.value = mag.colletSize;
+      var slotsSelect = getInput('rc-slots');
+      if (slotsSelect) slotsSelect.value = String(mag.slots);
+      var modelSelect = getInput('rc-model-select');
+      if (modelSelect) modelSelect.value = mag.model;
+      setSliderValue('rc-orientation-toggle', mag.orientation);
+      setSliderValue('rc-direction-toggle', mag.direction);
+      var slotDistanceInput = getInput('rc-slot-distance');
+      if (slotDistanceInput) slotDistanceInput.value = formatCoordinate(mag.slotDistance);
+      setCoordinateInputs(SLOT_PREFIX, mag.slot1);
+      var zEngagementInput = getInput('rc-zengagement');
+      if (zEngagementInput) zEngagementInput.value = formatCoordinate(mag.zEngagement);
+      var zone1Input = getInput('rc-zone1');
+      if (zone1Input) zone1Input.value = formatCoordinate(mag.zone1);
+      var zone2Input = getInput('rc-zone2');
+      if (zone2Input) zone2Input.value = formatCoordinate(mag.zone2);
+      var sameZToggle = getInput('rc-same-z');
+      if (sameZToggle) sameZToggle.checked = !!mag.useFirstZ;
+    };
+
+    // Copy the visible fields back into the magazine they belong to.
+    var syncActiveMagazine = function() {
+      if (!magazines.length) return;
+      magazines[activeMagazine] = readMagazineForm();
+
+      // Magazine 1's heights may have changed since a follower was set up.
+      var first = magazines[0];
+      magazines.forEach(function(mag, index) {
+        if (index > 0 && mag.useFirstZ) {
+          mag.zEngagement = first.zEngagement;
+          mag.zone1 = first.zone1;
+          mag.zone2 = first.zone2;
+        }
+      });
+    };
+
+    // "Same Z & zones as Magazine 1": mirror magazine 1's three values and lock
+    // the fields, so what is on screen is what the magazine will actually use.
+    var isFollowingFirstZ = function() {
+      var toggle = getInput('rc-same-z');
+      return activeMagazine > 0 && !!toggle && toggle.checked;
+    };
+
+    var applySameZState = function() {
+      var row = document.getElementById('rc-same-z-row');
+      var toggle = getInput('rc-same-z');
+      var following = activeMagazine > 0 && toggle && toggle.checked;
+      if (row) row.style.display = activeMagazine > 0 ? '' : 'none';
+
+      if (following && magazines[0]) {
+        var first = magazines[0];
+        var zEngagementInput = getInput('rc-zengagement');
+        if (zEngagementInput) zEngagementInput.value = formatCoordinate(first.zEngagement);
+        var zone1Input = getInput('rc-zone1');
+        if (zone1Input) zone1Input.value = formatCoordinate(first.zone1);
+        var zone2Input = getInput('rc-zone2');
+        if (zone2Input) zone2Input.value = formatCoordinate(first.zone2);
       }
 
-      setSliderValue('rc-orientation-toggle', initialConfig.orientation);
-      setSliderValue('rc-direction-toggle', initialConfig.direction);
-      setCoordinateInputs(SLOT_PREFIX, initialConfig.pocket1);
+      ['rc-zengagement', 'rc-zone1', 'rc-zone2'].forEach(function(id) {
+        var input = getInput(id);
+        if (input) input.disabled = !!following;
+      });
+      var autoBtn = document.getElementById('rc-auto-calibrate-btn');
+      if (autoBtn) autoBtn.disabled = !!following;
+      var autoRow = document.getElementById('rc-auto-detect-row');
+      if (autoRow) autoRow.classList.toggle('rc-row-inactive', !!following);
+      // Grabbing X/Y stays available — that is the one thing a following
+      // magazine still needs.
+    };
+
+    var renderMagazineTabs = function() {
+      var strip = document.getElementById('rc-mag-tabs');
+      if (!strip) return;
+      strip.innerHTML = '';
+
+      magazines.forEach(function(mag, index) {
+        var range = slotRange(index);
+        var tab = document.createElement('button');
+        tab.type = 'button';
+        tab.className = 'rc-mag-tab' + (index === activeMagazine ? ' active' : '');
+        var name = document.createElement('span');
+        name.textContent = 'Magazine ' + (index + 1);
+        var sub = document.createElement('span');
+        sub.className = 'rc-mag-tab-range';
+        sub.textContent = range.first === range.last
+          ? 'T' + range.first
+          : 'T' + range.first + '-' + range.last;
+        tab.appendChild(name);
+        tab.appendChild(sub);
+        tab.addEventListener('click', function() { selectMagazine(index); });
+
+        // Magazine 1 cannot be removed: everything after it is numbered from
+        // it. A span rather than a button, because this sits inside the tab's
+        // own button.
+        if (index > 0) {
+          var close = document.createElement('span');
+          close.className = 'rc-mag-close';
+          close.setAttribute('role', 'button');
+          close.setAttribute('title', 'Remove Magazine ' + (index + 1));
+          close.textContent = '\u00d7';
+          close.addEventListener('click', function(evt) {
+            evt.stopPropagation();
+            removeMagazineAt(index);
+          });
+          tab.appendChild(close);
+        }
+        strip.appendChild(tab);
+      });
+
+      // Last segment of the same control: a plain "+", gone at the limit.
+      if (magazines.length < MAX_MAGAZINES) {
+        var add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'rc-mag-add';
+        add.textContent = '+';
+        add.title = 'Add another magazine';
+        add.addEventListener('click', addMagazine);
+        strip.appendChild(add);
+      }
+
+      var title = document.getElementById('rc-mag-title');
+      if (title) {
+        title.textContent = magazines.length > 1
+          ? 'Magazine ' + (activeMagazine + 1) + ' Settings'
+          : 'Magazine Settings';
+      }
+      var slot1Title = document.getElementById('rc-slot1-title');
+      if (slot1Title) {
+        var r = slotRange(activeMagazine);
+        slot1Title.textContent = magazines.length > 1
+          ? 'Slot 1 Position (T' + r.first + ')'
+          : 'Slot 1 Position';
+      }
+    };
+
+    var selectMagazine = function(index) {
+      if (index === activeMagazine || !magazines[index]) return;
+      syncActiveMagazine();
+      activeMagazine = index;
+      writeMagazineForm(magazines[index]);
+      applySameZState();
+      updateSuggestionNote();
+      renderMagazineTabs();
+    };
+
+    var addMagazine = function() {
+      if (magazines.length >= MAX_MAGAZINES) return;
+      syncActiveMagazine();
+      // Start from the magazine before it: same hardware, same spacing, same
+      // heights, positioned as if bolted to its end. Whatever was set up on
+      // that one carries forward, so a row of identical magazines needs almost
+      // nothing typed. All of it stays editable.
+      var prev = magazines[magazines.length - 1] || defaultMagazine();
+      magazines.push({
+        colletSize: prev.colletSize,
+        model: prev.model,
+        slots: prev.slots,
+        orientation: prev.orientation,
+        direction: prev.direction,
+        slotDistance: prev.slotDistance,
+        slot1: nextMagazineStart(prev),
+        zEngagement: prev.zEngagement,
+        zone1: prev.zone1,
+        zone2: prev.zone2,
+        // Magazine 1 has no follow flag of its own, so the first one added
+        // starts out following it; after that the choice carries forward.
+        useFirstZ: magazines.length === 1 ? true : prev.useFirstZ !== false
+      });
+      activeMagazine = magazines.length - 1;
+      suggestedMagazines[activeMagazine] = true;
+      writeMagazineForm(magazines[activeMagazine]);
+      applySameZState();
+      updateSuggestionNote();
+      renderMagazineTabs();
+      markDirty();
+      notifySuccess('Magazine ' + (activeMagazine + 1) + ' added, continuing the row from Magazine ' +
+        activeMagazine + '. Check its slot 1 position.');
+    };
+
+    var showRemoveConfirm = function(index) {
+      return new Promise(function(resolve) {
+        var modal = document.getElementById('rc-remove-modal');
+        var confirm = document.getElementById('rc-remove-confirm');
+        var cancel = document.getElementById('rc-remove-cancel');
+        var title = document.getElementById('rc-remove-title');
+        var body = document.getElementById('rc-remove-body');
+        if (!modal || !confirm || !cancel) { resolve(true); return; }
+
+        var range = slotRange(index);
+        var laterMagazines = magazines.length - index - 1;
+        if (title) title.textContent = 'Remove Magazine ' + (index + 1) + '?';
+        if (body) {
+          body.textContent = 'Its settings and slot 1 position are discarded, and tools T' +
+            range.first + '-T' + range.last + ' lose their slots.' +
+            (laterMagazines > 0
+              ? ' The magazines after it are renumbered, so their tool numbers shift down.'
+              : '') +
+            ' Nothing is written until you press Save.';
+        }
+
+        modal.classList.add('rc-open');
+        function cleanup(value) {
+          modal.classList.remove('rc-open');
+          confirm.removeEventListener('click', onConfirm);
+          cancel.removeEventListener('click', onCancel);
+          resolve(value);
+        }
+        function onConfirm() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+        confirm.addEventListener('click', onConfirm);
+        cancel.addEventListener('click', onCancel);
+      });
+    };
+
+    var removeMagazineAt = async function(index) {
+      if (index === 0 || magazines.length <= 1) return;
+      // Whatever is on screen belongs to the active magazine; keep it before
+      // the list shifts underneath.
+      syncActiveMagazine();
+      var confirmed = await showRemoveConfirm(index);
+      if (!confirmed) return;
+      magazines.splice(index, 1);
+      suggestedMagazines.splice(index, 1);
+      if (activeMagazine >= index) activeMagazine = Math.max(0, activeMagazine - 1);
+      activeMagazine = Math.min(activeMagazine, magazines.length - 1);
+      writeMagazineForm(magazines[activeMagazine]);
+      applySameZState();
+      updateSuggestionNote();
+      renderMagazineTabs();
+      markDirty();
+    };
+
+    var applyInitialSettings = function() {
+      magazines = magazinesFromConfig(initialConfig);
+      activeMagazine = 0;
+      writeMagazineForm(magazines[0]);
+      applySameZState();
+      renderMagazineTabs();
+
       setCoordinateInputs(TOOL_SETTER_PREFIX, initialConfig.toolSetter);
       setCoordinateInputs(MANUAL_TOOL_PREFIX, initialConfig.manualTool);
 
@@ -1824,21 +2460,6 @@
       var unloadRpmInput = getInput('rc-unload-rpm');
       if (unloadRpmInput) {
         unloadRpmInput.value = String(initialConfig.unloadRpm ?? 1500);
-      }
-
-      var zEngagementInput = getInput('rc-zengagement');
-      if (zEngagementInput) {
-        zEngagementInput.value = formatCoordinate(initialConfig.zEngagement ?? -50);
-      }
-
-      var zone1Input = getInput('rc-zone1');
-      if (zone1Input) {
-        zone1Input.value = formatCoordinate(initialConfig.zone1 ?? -27);
-      }
-
-      var zone2Input = getInput('rc-zone2');
-      if (zone2Input) {
-        zone2Input.value = formatCoordinate(initialConfig.zone2 ?? -22);
       }
 
       var showMacroCommandCheck = getInput('rc-show-macro-command');
@@ -1874,11 +2495,6 @@
       var unloadPlungesInput = getInput('rc-unload-plunges');
       if (unloadPlungesInput) {
         unloadPlungesInput.value = String(initialConfig.unloadPlunges ?? 1);
-      }
-
-      var slotDistanceInput = getInput('rc-slot-distance');
-      if (slotDistanceInput) {
-        slotDistanceInput.value = formatCoordinate(initialConfig.pocketDistance ?? 45);
       }
 
       var zProbeStartInput = getInput('rc-z-probe-start');
@@ -2092,7 +2708,12 @@
       // setCoordinateInputs uses formatCoordinate which handles metric→imperial display
       setCoordinateInputs(prefix, coords);
 
-      if (prefix === SLOT_PREFIX) {
+      if (prefix === SLOT_PREFIX) clearSuggestion(activeMagazine);
+
+      // Grabbing slot 1 also seeds the engagement height — unless this
+      // magazine takes its heights from magazine 1, where writing Z here would
+      // silently undo the value the operator can see is locked.
+      if (prefix === SLOT_PREFIX && !isFollowingFirstZ()) {
         var zEngagementInput = getInput('rc-zengagement');
         if (zEngagementInput) {
           zEngagementInput.value = formatCoordinate(coords.z - 5);
@@ -2127,10 +2748,13 @@
       var indicator = toggle.querySelector('.rc-slider-indicator');
 
       var updateIndicator = function(activeOption) {
-        var rect = activeOption.getBoundingClientRect();
-        var toggleRect = toggle.getBoundingClientRect();
-        indicator.style.left = (activeOption.offsetLeft) + 'px';
-        indicator.style.width = rect.width + 'px';
+        var width = activeOption.getBoundingClientRect().width;
+        // A panel that is not on screen measures zero. Writing that here is
+        // what left the pill invisible on first open, so leave it be and let
+        // the panel refresh it when it is shown.
+        if (!width) return;
+        indicator.style.left = activeOption.offsetLeft + 'px';
+        indicator.style.width = width + 'px';
       };
 
       options.forEach(function(option) {
@@ -2164,6 +2788,24 @@
       return activeOption ? activeOption.getAttribute('data-value') : null;
     };
 
+    var refreshSliderIndicator = function(toggleId) {
+      var toggle = document.getElementById(toggleId);
+      if (!toggle) return;
+      var option = toggle.querySelector('.rc-slider-option.active');
+      var indicator = toggle.querySelector('.rc-slider-indicator');
+      if (!option || !indicator) return;
+      var width = option.getBoundingClientRect().width;
+      // Still hidden: leave the pill alone rather than collapsing it to zero.
+      if (!width) return;
+      indicator.style.left = option.offsetLeft + 'px';
+      indicator.style.width = width + 'px';
+    };
+
+    var refreshMagazineSliders = function() {
+      refreshSliderIndicator('rc-orientation-toggle');
+      refreshSliderIndicator('rc-direction-toggle');
+    };
+
     var setSliderValue = function(toggleId, value) {
       var toggle = document.getElementById(toggleId);
       if (!toggle || !value) return;
@@ -2177,19 +2819,21 @@
           option.classList.add('active');
 
           setTimeout(function() {
-            indicator.style.left = (option.offsetLeft) + 'px';
-            indicator.style.width = option.getBoundingClientRect().width + 'px';
+            var width = option.getBoundingClientRect().width;
+            if (!width) return;
+            indicator.style.left = option.offsetLeft + 'px';
+            indicator.style.width = width + 'px';
           }, 0);
         }
       });
     };
 
     var gatherFormData = function() {
-      var colletSelect = getInput('rc-collet-size');
-      var slotsSelect = getInput('rc-slots');
-      var modelSelect = getInput('rc-model-select');
-      var slot1X = getInput('rc-slot1-x');
-      var slot1Y = getInput('rc-slot1-y');
+      // Fold whatever is on screen back into the active magazine first — the
+      // other magazines already hold their values in the model.
+      syncActiveMagazine();
+      var firstMagazine = magazines[0] || defaultMagazine();
+
       var toolSetterX = getInput('rc-toolsetter-x');
       var toolSetterY = getInput('rc-toolsetter-y');
       var manualToolX = getInput('rc-manualtool-x');
@@ -2197,9 +2841,6 @@
       var atcStartDelayInput = getInput('rc-atc-start-delay');
       var loadRpmInput = getInput('rc-load-rpm');
       var unloadRpmInput = getInput('rc-unload-rpm');
-      var zEngagementInput = getInput('rc-zengagement');
-      var zone1Input = getInput('rc-zone1');
-      var zone2Input = getInput('rc-zone2');
       var showMacroCommandCheck = getInput('rc-show-macro-command');
       var performTlsAfterHomeCheck = getInput('rc-perform-tls-after-home');
       var spindleAtSpeedCheck = getInput('rc-spindle-at-speed');
@@ -2207,18 +2848,23 @@
       var zRetreatInput = getInput('rc-z-retreat');
       var loadPlungesInput = getInput('rc-load-plunges');
       var unloadPlungesInput = getInput('rc-unload-plunges');
-      var slotDistanceInput = getInput('rc-slot-distance');
       var zProbeStartInput = getInput('rc-z-probe-start');
       var seekDistanceInput = getInput('rc-seek-distance');
       var seekFeedrateInput = getInput('rc-seek-feedrate');
       var toolSensorInput = getInput('rc-tool-sensor');
 
       return {
-        colletSize: colletSelect ? colletSelect.value : null,
-        pockets: slotsSelect ? getParseInt(slotsSelect.value) : null,
-        model: modelSelect ? modelSelect.value : null,
-        orientation: getSliderValue('rc-orientation-toggle'),
-        direction: getSliderValue('rc-direction-toggle'),
+        magazines: magazines,
+        // `pockets` stays the total across every magazine: it is what the core
+        // reads to size the tool table, and what the slot-range checks use. The
+        // keys below mirror magazine 1 so anything still reading the old flat
+        // shape — including an older build of this plugin — finds a magazine
+        // where it expects one.
+        pockets: totalSlots(),
+        colletSize: firstMagazine.colletSize,
+        model: firstMagazine.model,
+        orientation: firstMagazine.orientation,
+        direction: firstMagazine.direction,
         showMacroCommand: showMacroCommandCheck ? showMacroCommandCheck.checked : false,
         performTlsAfterHome: performTlsAfterHomeCheck ? performTlsAfterHomeCheck.checked : false,
         spindleAtSpeed: spindleAtSpeedCheck ? spindleAtSpeedCheck.checked : false,
@@ -2226,13 +2872,13 @@
         atcStartDelay: atcStartDelayInput ? getParseInt(atcStartDelayInput.value) : 0,
         loadRpm: loadRpmInput ? getParseInt(loadRpmInput.value) : 1200,
         unloadRpm: unloadRpmInput ? getParseInt(unloadRpmInput.value) : 1500,
-        zEngagement: zEngagementInput ? toMetric(getParseFloat(zEngagementInput.value)) : -50,
-        zone1: zone1Input ? toMetric(getParseFloat(zone1Input.value)) : -27,
-        zone2: zone2Input ? toMetric(getParseFloat(zone2Input.value)) : -22,
+        zEngagement: firstMagazine.zEngagement,
+        zone1: firstMagazine.zone1,
+        zone2: firstMagazine.zone2,
         zRetreat: zRetreatInput ? toMetric(getParseFloat(zRetreatInput.value)) : 7,
         loadPlunges: loadPlungesInput ? getParseInt(loadPlungesInput.value) : 3,
         unloadPlunges: unloadPlungesInput ? getParseInt(unloadPlungesInput.value) : 1,
-        pocketDistance: slotDistanceInput ? toMetric(getParseFloat(slotDistanceInput.value)) : 45,
+        pocketDistance: firstMagazine.slotDistance,
         zProbeStart: zProbeStartInput ? toMetric(getParseFloat(zProbeStartInput.value)) : -20,
         seekDistance: seekDistanceInput ? toMetric(getParseFloat(seekDistanceInput.value)) : 50,
         seekFeedrate: seekFeedrateInput ? toMetric(getParseFloat(seekFeedrateInput.value)) : 500,
@@ -2244,10 +2890,7 @@
         abortEventGcode: abortEventEditor ? abortEventEditor.getValue() : '',
         preTlsGcode: preTlsEditor ? preTlsEditor.getValue() : '',
         postTlsGcode: postTlsEditor ? postTlsEditor.getValue() : '',
-        pocket1: {
-          x: slot1X ? toMetric(getParseFloat(slot1X.value)) : null,
-          y: slot1Y ? toMetric(getParseFloat(slot1Y.value)) : null
-        },
+        pocket1: { x: firstMagazine.slot1.x, y: firstMagazine.slot1.y },
         toolSetter: {
           x: toolSetterX ? toMetric(getParseFloat(toolSetterX.value)) : null,
           y: toolSetterY ? toMetric(getParseFloat(toolSetterY.value)) : null
@@ -2821,10 +3464,43 @@
     initSliderToggle('rc-orientation-toggle');
     initSliderToggle('rc-direction-toggle');
 
+    // ---------- Magazine tab wiring ----------
+    ['rc-slot1-x', 'rc-slot1-y'].forEach(function(id) {
+      var input = getInput(id);
+      if (input) input.addEventListener('input', function() { clearSuggestion(activeMagazine); });
+    });
+
+    var sameZToggle = getInput('rc-same-z');
+    if (sameZToggle) {
+      sameZToggle.addEventListener('change', function() {
+        // Turning it off leaves magazine 1's values in the fields as the
+        // starting point — Auto Detect or a hand edit takes it from there.
+        applySameZState();
+        syncActiveMagazine();
+      });
+    }
+
+    // The slot count decides where the next magazine's numbering starts, so
+    // the ranges on the tabs have to follow it as it changes.
+    var slotsSelect = getInput('rc-slots');
+    if (slotsSelect) {
+      slotsSelect.addEventListener('change', function() {
+        syncActiveMagazine();
+        renderMagazineTabs();
+      });
+    }
+
     var colletSelect = getInput('rc-collet-size');
     if (colletSelect) {
       colletSelect.addEventListener('change', function() {
         var newColletSize = colletSelect.value;
+        // Load/unload RPM and Z-Retreat are one setting for the spindle, on the
+        // General tab — only magazine 1 reseeds them, so picking a collet size
+        // on a second magazine cannot quietly rewrite the machine's RPMs.
+        if (activeMagazine !== 0) {
+          syncActiveMagazine();
+          return;
+        }
         var loadRpmInput = getInput('rc-load-rpm');
         var unloadRpmInput = getInput('rc-unload-rpm');
         var zRetreatInput = getInput('rc-z-retreat');

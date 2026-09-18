@@ -159,8 +159,121 @@ const getDefaultZRetreat = (colletSize) => {
   return 7;
 };
 
+// === Magazines ===
+//
+// A machine can carry more than one magazine — typically a second row bolted
+// alongside the first. Each one is its own piece of hardware: its own first
+// slot, spacing, axis, and its own engagement height and sensor zones, since
+// no two are ever mounted at exactly the same height.
+//
+// Slot numbers run straight through them. Two magazines of 6 give slots 1-6
+// and 7-12; the operator never has to think in terms of "magazine 2, slot 3".
+
+const MAX_MAGAZINES = 3;
+
+const buildMagazine = (raw = {}, fallback = {}) => {
+  const colletSize = sanitizeColletSize(raw.colletSize ?? fallback.colletSize);
+  const num = (key, fallbackValue) => (
+    raw[key] !== undefined && raw[key] !== null
+      ? toFiniteNumber(raw[key], fallbackValue)
+      : fallbackValue
+  );
+
+  return {
+    colletSize,
+    model: sanitizeModel(raw.model ?? fallback.model),
+    // Most second magazines are the same product bolted to the same
+    // spoilboard, so the engagement height and both zones match the first one
+    // and only X/Y differ. This says "take them from magazine 1"; turning it
+    // off lets that magazine keep its own, from its own Auto Detect. It has no
+    // meaning on magazine 1 itself.
+    useFirstZ: raw.useFirstZ !== undefined && raw.useFirstZ !== null ? !!raw.useFirstZ : true,
+    slots: clampSlots(raw.slots ?? fallback.slots),
+    orientation: sanitizeOrientation(raw.orientation ?? fallback.orientation),
+    direction: sanitizeDirection(raw.direction ?? fallback.direction),
+    slotDistance: num('slotDistance', toFiniteNumber(fallback.slotDistance, 45)),
+    slot1: sanitizeCoords(raw.slot1 ?? fallback.slot1),
+    zEngagement: num('zEngagement', toFiniteNumber(fallback.zEngagement, -50)),
+    zone1: num('zone1', toFiniteNumber(fallback.zone1, -27.0)),
+    zone2: num('zone2', toFiniteNumber(fallback.zone2, -22.0))
+  };
+};
+
+// Installs that predate multiple magazines have the one magazine spread across
+// the top level as `pockets` / `pocket1` / `pocketDistance`. Fold that into the
+// list rather than asking the operator to re-enter a working setup.
+const buildMagazines = (raw = {}) => {
+  const legacy = {
+    colletSize: raw.colletSize ?? raw.model,
+    model: raw.model ?? raw.trip ?? raw.modelName ?? raw.machineModel,
+    slots: raw.pockets,
+    orientation: raw.orientation,
+    direction: raw.direction,
+    slotDistance: raw.pocketDistance,
+    slot1: raw.pocket1,
+    zEngagement: raw.zEngagement,
+    zone1: raw.zone1,
+    zone2: raw.zone2
+  };
+
+  const list = Array.isArray(raw.magazines) && raw.magazines.length > 0
+    ? raw.magazines.slice(0, MAX_MAGAZINES)
+    : [legacy];
+
+  const magazines = list.map((mag, index) => buildMagazine(mag, index === 0 ? legacy : {}));
+
+  // Resolve "same as magazine 1" here, once, so every routine downstream just
+  // reads the magazine it was handed.
+  const first = magazines[0];
+  first.useFirstZ = false;
+  return magazines.map((mag, index) => (
+    index > 0 && mag.useFirstZ
+      ? { ...mag, zEngagement: first.zEngagement, zone1: first.zone1, zone2: first.zone2 }
+      : mag
+  ));
+};
+
+const totalSlots = (magazines) => magazines.reduce((sum, mag) => sum + mag.slots, 0);
+
+// The magazine that owns a slot, and that slot's position within it.
+function magazineForSlot(settings, slotNum) {
+  const magazines = settings.magazines ?? [];
+  let first = 1;
+  for (let i = 0; i < magazines.length; i++) {
+    const mag = magazines[i];
+    if (slotNum >= first && slotNum < first + mag.slots) {
+      return { magazine: mag, magazineIndex: i, slotInMagazine: slotNum - first + 1 };
+    }
+    first += mag.slots;
+  }
+  return null;
+}
+
+// The routines below all read the flat settings keys. Rather than thread a
+// magazine through every one of them, swap that magazine's values in and hand
+// the routine the settings object it already expects.
+function settingsForSlot(settings, slotNum) {
+  const found = magazineForSlot(settings, slotNum);
+  if (!found) return settings;
+  const mag = found.magazine;
+  return {
+    ...settings,
+    colletSize: mag.colletSize,
+    model: mag.model,
+    orientation: mag.orientation,
+    direction: mag.direction,
+    pocket1: mag.slot1,
+    pocketDistance: mag.slotDistance,
+    zEngagement: mag.zEngagement,
+    zone1: mag.zone1,
+    zone2: mag.zone2
+  };
+}
+
 const buildInitialConfig = (raw = {}) => {
-  const colletSize = sanitizeColletSize(raw.colletSize ?? raw.model);
+  const magazines = buildMagazines(raw);
+  const firstMagazine = magazines[0];
+  const colletSize = firstMagazine.colletSize;
 
   const loadRpm = raw.loadRpm !== undefined && raw.loadRpm !== null
     ? toFiniteNumber(raw.loadRpm, getDefaultLoadRpm(colletSize))
@@ -176,27 +289,33 @@ const buildInitialConfig = (raw = {}) => {
     : getDefaultZRetreat(colletSize);
 
   return {
+    magazines,
+
     colletSize,
     // Storage keys stay `pockets` / `pocket1` / `pocketDistance` even though
     // the UI now says "slot" — the core's PluginManager reads `pockets` to
     // sync the app-level tool count when the plugin is enabled, and existing
-    // installs already have these keys on disk.
-    pockets: clampSlots(raw.pockets),
-    model: sanitizeModel(raw.model ?? raw.trip ?? raw.modelName ?? raw.machineModel),
-    orientation: sanitizeOrientation(raw.orientation),
-    direction: sanitizeDirection(raw.direction),
+    // installs already have these keys on disk. With more than one magazine
+    // `pockets` is the total across all of them, which is exactly the tool
+    // count the app should show. The rest mirror the first magazine so an
+    // older build, or anything else reading this file, still finds a magazine
+    // where it expects one.
+    pockets: totalSlots(magazines),
+    model: firstMagazine.model,
+    orientation: firstMagazine.orientation,
+    direction: firstMagazine.direction,
     showMacroCommand: raw.showMacroCommand ?? false,
     performTlsAfterHome: raw.performTlsAfterHome ?? false,
     spindleAtSpeed,
     addProbe: raw.addProbe ?? false,
     atcStartDelay: clampAtcStartDelay(raw.atcStartDelay ?? raw.spindleDelay),
 
-    pocket1: sanitizeCoords(raw.pocket1),
+    pocket1: firstMagazine.slot1,
     toolSetter: sanitizeCoords(raw.toolSetter),
     manualTool: sanitizeCoords(raw.manualTool),
-    pocketDistance: toFiniteNumber(raw.pocketDistance, 45),
+    pocketDistance: firstMagazine.slotDistance,
 
-    zEngagement: toFiniteNumber(raw.zEngagement, -50),
+    zEngagement: firstMagazine.zEngagement,
     zSafe: toFiniteNumber(raw.zSafe, 0), // fallback; overridden by context.safeZHeight at runtime
     zSpinOff: toFiniteNumber(raw.zSpinOff, 23),
     zRetreat,
@@ -395,15 +514,21 @@ function createToolLengthSetProgram(settings, toolOffsets = { x: 0, y: 0, z: 0 }
 // === Slot Position Calculation ===
 
 function calculateSlotPosition(settings, slotNum) {
-  if (slotNum <= 0) {
+  const found = magazineForSlot(settings, slotNum);
+  if (!found) {
+    // Slot 0 (no tool) and anything past the last magazine: the first
+    // magazine's origin, as before. Callers that can act on an out-of-range
+    // slot check the range themselves first.
     return { x: settings.pocket1.x, y: settings.pocket1.y };
   }
-  const direction = settings.direction === 'Negative' ? -1 : 1;
-  const offset = (slotNum - 1) * settings.pocketDistance * direction;
-  if (settings.orientation === 'Y') {
-    return { x: settings.pocket1.x, y: settings.pocket1.y + offset };
+
+  const mag = found.magazine;
+  const direction = mag.direction === 'Negative' ? -1 : 1;
+  const offset = (found.slotInMagazine - 1) * mag.slotDistance * direction;
+  if (mag.orientation === 'Y') {
+    return { x: mag.slot1.x, y: mag.slot1.y + offset };
   } else {
-    return { x: settings.pocket1.x + offset, y: settings.pocket1.y };
+    return { x: mag.slot1.x + offset, y: mag.slot1.y };
   }
 }
 
@@ -591,8 +716,12 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets).join('\n');
 
   const atcStartDelaySection = settings.atcStartDelay > 0 ? `G4 P${settings.atcStartDelay}` : '';
-  const unloadSection = buildUnloadTool(settings, currentTool, sourcePos);
-  const loadSection = buildLoadTool(settings, toolNumber, targetPos, tlsRoutine);
+
+  // The outgoing and incoming tools can live in different magazines, each with
+  // its own engagement height, zones and model — so each half of the change is
+  // built against the magazine that owns its slot.
+  const unloadSection = buildUnloadTool(settingsForSlot(settings, currentTool), currentTool, sourcePos);
+  const loadSection = buildLoadTool(settingsForSlot(settings, toolNumber), toolNumber, targetPos, tlsRoutine);
 
   const preToolChangeCmd = settings.preToolChangeGcode?.trim() || '';
   const postToolChangeCmd = settings.postToolChangeGcode?.trim() || '';
