@@ -738,6 +738,13 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
   }
 }
 
+// The operator's spindle override (Ov: in the status report) must not scale
+// the load/unload RPM: those speeds were tuned at 100% and a 50% override
+// would leave the collet nut under-torqued. M51 P0 makes grblHAL apply
+// programmed RPM regardless of the override, without touching the stored
+// percentage -- so the job resumes at exactly the override the operator set.
+// #<_speed_override> is the pre-existing enable state (a program may have
+// disabled overrides itself), so restore what was there, not a hard-coded on.
 function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets = { x: 0, y: 0 }) {
   const sourcePos = calculateSlotPosition(settings, currentTool);
   const targetPos = calculateSlotPosition(settings, toolNumber);
@@ -758,13 +765,16 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
     (Start of RapidChangeATC Plugin Sequence)
     ${modalSafe(preToolChangeCmd, 'pre')}
     #<return_units> = [20 + #<_metric>]
+    #<return_spov> = #<_speed_override>
     G21
+    M51 P0
     M5
     ${atcStartDelaySection}
     ${unloadSection}
     ${loadSection}
     G53 G0 Z${settings.zSafe}
     G4 P0
+    M51 P[#<return_spov>]
     G[#<return_units>]
     ${modalSafe(postToolChangeCmd, 'post')}
     (End of RapidChangeATC Plugin Sequence)
