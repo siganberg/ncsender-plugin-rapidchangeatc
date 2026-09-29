@@ -80,14 +80,20 @@ jobs:
           PLUGIN_NAME="${{ steps.plugin_info.outputs.PLUGIN_NAME }}"
           TAG="${{ steps.plugin_info.outputs.TAG }}"
 
-          gh release create "$TAG" \
+          # A tag like v0.1.46-beta.1 is a beta: publish it as a pre-release so
+          # GitHub's "latest" (what the regular app installs and updates
+          # from) never points at it. Only the beta channel sees it.
+          PRERELEASE=""
+          case "$TAG" in *-*) PRERELEASE="--prerelease" ;; esac
+
+          gh release create "$TAG" $PRERELEASE \
             --repo ${{ github.repository }} \
             --title "$PLUGIN_NAME $TAG" \
             --notes-file release-notes.md \
             dist/*.zip
 
       - name: Announce on Discord
-        if: success() && env.DISCORD_WEBHOOK_URL != ''
+        if: success() && env.DISCORD_WEBHOOK_URL != '' && !contains(github.ref_name, '-')
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |

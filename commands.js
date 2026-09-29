@@ -348,9 +348,41 @@ const buildInitialConfig = (raw = {}) => {
 // A T number names a slot first, then a Tool ID — the order the app itself
 // uses — so a tool that isn't in any slot still gets its own offsets rather
 // than silently getting none. Offsets belong to the tool, never the slot.
+// Tool-id concept: a T number is the Tool ID (the tool, not the pocket), so
+// the library is searched by Tool ID first; a pocket is only a fallback.
 function findTool(toolNumber, tools) {
-  return tools.find((t) => t.toolNumber === toolNumber)
-    || tools.find((t) => t.toolId === toolNumber);
+  return tools.find((t) => t.toolId === toolNumber)
+    || tools.find((t) => t.toolNumber === toolNumber);
+}
+
+// The sequence builders think in physical positions: 1..pockets is a pocket,
+// 99 the probe, anything above the magazine a hand-loaded tool. toPhysical()
+// maps a Tool ID onto that: the pocket the library puts it in, else a
+// hand-tool number (MANUAL_BASE + id, always past every pocket). idOf() maps
+// back so M61 and the messages carry the Tool ID.
+const MANUAL_BASE = 1000;
+let _physToId = new Map();
+function idOf(n) {
+  return _physToId.has(n) ? _physToId.get(n) : n;
+}
+function toPhysical(id, settings, tools) {
+  if (!id || id <= 0) return 0;
+  if (id === PROBE_TOOL_NUMBER) return id;
+  const list = Array.isArray(tools) ? tools : [];
+  const tool = list.find((t) => t.toolId === id);
+  let phys;
+  if (tool) {
+    const pocket = Number.isInteger(tool.toolNumber) ? tool.toolNumber : 0;
+    phys = pocket >= 1 && pocket <= settings.pockets ? pocket : MANUAL_BASE + id;
+  } else {
+    // Not in the library. Keep the old meaning (T = pocket) only while that
+    // pocket isn't holding some other identified tool; an empty library
+    // therefore behaves exactly as before.
+    const occupant = list.find((t) => t.toolNumber === id);
+    phys = id <= settings.pockets && (!occupant || occupant.toolId == null) ? id : MANUAL_BASE + id;
+  }
+  _physToId.set(phys, id);
+  return phys;
 }
 
 function getToolOffsets(toolNumber, tools) {
@@ -648,11 +680,11 @@ function createToolLoad(settings, tool) {
   if (settings.model === 'Basic') {
     return `
       ${loadSequence}
-      M61 Q${tool}
+      M61 Q${idOf(tool)}
     `.trim();
   }
 
-  const manualFallback = createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL_${tool}`);
+  const manualFallback = createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:FAILED_LOAD_TOOL_${idOf(tool)}`);
   const sensorCheckNotTriggered = getSensorCheckCondition(settings.toolSensor, 0, 300);
   const sensorCheckTriggered = getSensorCheckCondition(settings.toolSensor, 1, 301);
   const sensorCheckClose300 = getSensorCheckClose(300);
@@ -669,7 +701,7 @@ function createToolLoad(settings, tool) {
         ${manualFallback}
       ${sensorCheckClose301}
     ${sensorCheckClose300}
-    M61 Q${tool}
+    M61 Q${idOf(tool)}
   `.trim();
 }
 
@@ -699,7 +731,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
   if (currentTool > settings.pockets) {
     return `
       G53 G0 Z${settings.zSafe}
-      ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL_${currentTool}`)}
+      ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_UNLOAD_TOOL_${idOf(currentTool)}`)}
       M61 Q0
     `.trim();
   } else if (settings.model === 'Basic') {
@@ -722,7 +754,7 @@ function buildUnloadTool(settings, currentTool, sourcePos) {
       ${sensorCheckTriggered100}
         ${createToolUnload(settings)}
         ${sensorCheckTriggered101}
-          ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL_${currentTool}`)}
+          ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:FAILED_UNLOAD_TOOL_${idOf(currentTool)}`)}
         ${sensorCheckClose101}
       ${sensorCheckClose100}
       M61 Q0
@@ -765,8 +797,8 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
   } else {
     return `
       G53 G0 Z${settings.zSafe}
-      ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL_${toolNumber}`)}
-      M61 Q${toolNumber}
+      ${createManualToolFallback(settings, `PLUGIN_RAPIDCHANGEATC:MANUAL_LOAD_TOOL_${idOf(toolNumber)}`)}
+      M61 Q${idOf(toolNumber)}
       ${tlsRoutine}
     `.trim();
   }
@@ -791,8 +823,8 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
   const tlsRoutine = createToolLengthSetRoutine(settings, toolOffsets,
     { mode: keepViaReference ? 'keepRef' : 'normal' }).join('\n');
   const zeroKeepSection = keepZero
-    ? `(Measure T${currentTool} first: it set Z0 before a tool length reference existed)
-    (MSG, ZERO_KEEP_START T${currentTool})
+    ? `(Measure T${idOf(currentTool)} first: it set Z0 before a tool length reference existed)
+    (MSG, ZERO_KEEP_START T${idOf(currentTool)})
     ${createToolLengthSetRoutine(settings, options.currentOffsets || { x: 0, y: 0, z: 0 },
       { mode: keepViaReference ? 'reference' : 'keepSelf' }).join('\n')}
     G53 G0 Z${settings.zSafe}
@@ -1031,9 +1063,12 @@ function handleM6Command(commands, context, settings) {
   const toolNumber = parsed.toolNumber;
   const currentTool = context.machineState?.tool ?? 0;
   const toolOffsets = getToolOffsets(toolNumber, context.tools);
+  _physToId = new Map();
+  const physTarget = toPhysical(toolNumber, settings, context.tools);
+  const physCurrent = toPhysical(currentTool, settings, context.tools);
 
   const mpos = context.machineState?.mpos;
-  const toolChangeProgram = buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets, {
+  const toolChangeProgram = buildToolChangeProgram(settings, physCurrent, physTarget, toolOffsets, {
     keepZero: zeroKeepPlan(context, currentTool).keep,
     currentOffsets: getToolOffsets(currentTool, context.tools),
     returnTo: mpos && typeof mpos.x === 'number' && typeof mpos.y === 'number' ? { x: mpos.x, y: mpos.y } : null,

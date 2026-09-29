@@ -3,7 +3,9 @@
 set -e
 
 # Get the latest tag from all branches
-LATEST_TAG=$(git tag --sort=-version:refname | head -1)
+# Stable releases only: skip pre-release tags (v0.1.46-beta.1), whose suffix
+# would break the patch bump below.
+LATEST_TAG=$(git tag --sort=-version:refname | grep -v -- '-' | head -1)
 if [ -z "$LATEST_TAG" ]; then
     # No existing tags, start with v0.1.0
     NEW_VERSION="0.1.0"
