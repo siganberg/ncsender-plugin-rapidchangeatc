@@ -50,4 +50,22 @@ t('$TLS keeps a pending Z0', () => {
 t('$H passes through untouched: no tool setter run after homing', () => {
   assert.deepEqual(run('rapidchangeatc', '$H', { ...base, zeroSetWithoutTlr: true, zeroTool: 1 }, { ...cfg, performTlsAfterHome: true }).lines, ['$H']);
 });
+const idx2 = (l, re) => l.findIndex(x => re.test(x));
+t('Post Tool Change runs after the new tool is in, before the return to the pre-change XY', () => {
+  const { lines } = run('rapidchangeatc', 'M6 T2', base, { ...cfg, postToolChangeGcode: '(POST TC)\nG53 G0 X500 Y500' });
+  const post = lines.indexOf('(POST TC)');
+  const back = idx2(lines, /^G53 G0 X250 Y300$/);
+  const load = idx2(lines, /M61 Q2/);
+  assert(load >= 0 && post > load, 'event after the new tool is loaded');
+  assert(back > post, 'event before the return');
+  const between = lines.slice(post, back);
+  assert(between.includes('G21'), 'back to mm for the return');
+  assert(between.some(l => /^G53 G0 Z/.test(l)), 'safe Z before the return');
+  assert.equal(lines.filter(l => /^G53 G0 X250 Y300$/.test(l)).length, 1, 'one return');
+});
+t('without a Post Tool Change event the return is the last move', () => {
+  const { lines } = run('rapidchangeatc', 'M6 T2', base, cfg);
+  assert.equal(lines.indexOf('(POST TC)'), -1);
+  assert.equal(lines.filter(l => /^G21$/.test(l)).length, 1, 'no extra units switch');
+});
 console.log(n, 'passed');

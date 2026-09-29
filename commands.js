@@ -814,6 +814,20 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
   const preToolChangeCmd = settings.preToolChangeGcode?.trim() || '';
   const postToolChangeCmd = settings.postToolChangeGcode?.trim() || '';
 
+  // Post Tool Change runs once the new tool is in, at safe Z, BEFORE the move
+  // back to where the change started. It used to run after that move: a
+  // routine that picks up a dust shoe drove back to the work first, went off
+  // to the dust shoe, and the job then moved back again. The event runs in the
+  // program's units (modalSafe), then millimetres and safe Z again for the
+  // return. With no return move (older host) it stays at the very end.
+  const postBeforeReturn = postToolChangeCmd && returnSection
+    ? `G4 P0
+    G[#<return_units>]
+    ${modalSafe(postToolChangeCmd, 'post')}
+    G21
+    G53 G0 Z${settings.zSafe}`
+    : '';
+
   const gcode = `
     (Start of RapidChangeATC Plugin Sequence)
     ${modalSafe(preToolChangeCmd, 'pre')}
@@ -827,11 +841,12 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
     ${unloadSection}
     ${loadSection}
     G53 G0 Z${settings.zSafe}
+    ${postBeforeReturn}
     ${returnSection}
     G4 P0
     M51 P[#<return_spov>]
     G[#<return_units>]
-    ${modalSafe(postToolChangeCmd, 'post')}
+    ${postBeforeReturn ? '' : modalSafe(postToolChangeCmd, 'post')}
     (End of RapidChangeATC Plugin Sequence)
   `.trim();
 
