@@ -816,6 +816,10 @@ function buildLoadTool(settings, toolNumber, targetPos, tlsRoutine) {
 // done, so the job's spindle start happens where it left off rather than
 // above the tool setter.
 function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets = { x: 0, y: 0 }, options = {}) {
+  // Override control (M51) is grblHAL-only: FluidNC rejects the line, and a
+  // rejected line stops the tool change. The app reports what the controller
+  // supports; an older app doesn't, so assume grblHAL.
+  const ovr = options.overrideControl !== false;
   const sourcePos = calculateSlotPosition(settings, currentTool);
   const targetPos = calculateSlotPosition(settings, toolNumber);
   const keepZero = !!options.keepZero;
@@ -864,9 +868,9 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
     (Start of RapidChangeATC Plugin Sequence)
     ${modalSafe(preToolChangeCmd, 'pre')}
     #<return_units> = [20 + #<_metric>]
-    #<return_spov> = #<_speed_override>
+    ${ovr ? '#<return_spov> = #<_speed_override>' : ''}
     G21
-    M51 P0
+    ${ovr ? 'M51 P0' : ''}
     M5
     ${atcStartDelaySection}
     ${zeroKeepSection}
@@ -876,7 +880,7 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
     ${postBeforeReturn}
     ${returnSection}
     G4 P0
-    M51 P[#<return_spov>]
+    ${ovr ? 'M51 P[#<return_spov>]' : ''}
     G[#<return_units>]
     ${postBeforeReturn ? '' : modalSafe(postToolChangeCmd, 'post')}
     (End of RapidChangeATC Plugin Sequence)
@@ -1071,6 +1075,7 @@ function handleM6Command(commands, context, settings) {
   const toolChangeProgram = buildToolChangeProgram(settings, physCurrent, physTarget, toolOffsets, {
     keepZero: zeroKeepPlan(context, currentTool).keep,
     currentOffsets: getToolOffsets(currentTool, context.tools),
+    overrideControl: context.controller?.overrideControl,
     returnTo: mpos && typeof mpos.x === 'number' && typeof mpos.y === 'number' ? { x: mpos.x, y: mpos.y } : null,
   });
   const showMacroCommand = settings.showMacroCommand ?? false;
