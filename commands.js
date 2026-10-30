@@ -345,14 +345,12 @@ const buildInitialConfig = (raw = {}) => {
 
 // === Tool Offset Lookup (pure, from pre-fetched array) ===
 
-// A T number names a slot first, then a Tool ID — the order the app itself
-// uses — so a tool that isn't in any slot still gets its own offsets rather
-// than silently getting none. Offsets belong to the tool, never the slot.
-// Tool-id concept: a T number is the Tool ID (the tool, not the pocket), so
-// the library is searched by Tool ID first; a pocket is only a fallback.
+// A T number is the Tool ID, as the app's tool list numbers it (the slot
+// with Slot numbering). Never the slot as a fallback: with Tool ID numbering
+// that is another tool, and its offsets would be used. Offsets belong to the
+// tool, never the slot.
 function findTool(toolNumber, tools) {
-  return tools.find((t) => t.toolId === toolNumber)
-    || tools.find((t) => t.toolNumber === toolNumber);
+  return tools.find((t) => t.toolId === toolNumber);
 }
 
 // The sequence builders think in physical positions: 1..pockets is a pocket,
