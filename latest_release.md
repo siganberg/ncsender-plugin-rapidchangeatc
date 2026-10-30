@@ -1,4 +1,4 @@
 ## What's Changed
 
 ### 🐛 Bug Fixes
-- Fixed tool changes on FluidNC controllers stopping at M51 instead of finishing the tool change
+- Tools are now looked up by their Tool ID only, never by their slot number, so tool changes always load the tool you asked for
