@@ -1249,6 +1249,10 @@
               <label id="rc-label-slot-distance">Slot Distance (mm)</label>
               <input type="number" class="rc-input" id="rc-slot-distance" value="45" min="1" max="500" step="0.1">
             </div>
+            <div class="rc-field-inline">
+              <label id="rc-label-keepout-padding">Safety Margin (mm)</label>
+              <input type="number" class="rc-input" id="rc-keepout-padding" value="60" min="0" max="500" step="0.1">
+            </div>
           </div>
 
           <!-- Slot 1 reference position + IR-derived zones -->
@@ -1956,7 +1960,7 @@
     // and step="1" rejects the 19.6850 in/min that 500 mm/min displays as.
     // Rescale the bounds and drop to step="any"; metric is left as authored.
     var UNIT_INPUT_IDS = [
-      'rc-slot-distance', 'rc-slot1-x', 'rc-slot1-y', 'rc-zengagement',
+      'rc-slot-distance', 'rc-keepout-padding', 'rc-slot1-x', 'rc-slot1-y', 'rc-zengagement',
       'rc-zone1', 'rc-zone2', 'rc-z-retreat',
       'rc-toolsetter-x', 'rc-toolsetter-y', 'rc-z-probe-start',
       'rc-seek-distance', 'rc-seek-feedrate',
@@ -2464,6 +2468,11 @@
         zRetreatInput.value = formatCoordinate(initialConfig.zRetreat ?? 7);
       }
 
+      var keepoutPaddingInput = getInput('rc-keepout-padding');
+      if (keepoutPaddingInput) {
+        keepoutPaddingInput.value = formatCoordinate(initialConfig.keepoutPadding ?? 60);
+      }
+
       var loadPlungesInput = getInput('rc-load-plunges');
       if (loadPlungesInput) {
         loadPlungesInput.value = String(initialConfig.loadPlunges ?? 3);
@@ -2819,9 +2828,12 @@
       var seekDistanceInput = getInput('rc-seek-distance');
       var seekFeedrateInput = getInput('rc-seek-feedrate');
       var toolSensorInput = getInput('rc-tool-sensor');
+      var keepoutPaddingInput = getInput('rc-keepout-padding');
+      var keepoutPadding = keepoutPaddingInput ? toMetric(getParseFloat(keepoutPaddingInput.value)) : 60;
 
       return {
         magazines: magazines,
+        keepoutPadding: Number.isFinite(keepoutPadding) && keepoutPadding >= 0 ? keepoutPadding : 60,
         // `pockets` stays the total across every magazine: it is what the core
         // reads to size the tool table, and what the slot-range checks use. The
         // keys below mirror magazine 1 so anything still reading the old flat
@@ -2922,7 +2934,96 @@
         throw new Error('Failed to update tool.count setting: ' + settingsResponse.status);
       }
 
+      await syncKeepoutZones(payload);
       isDirty = false;
+    };
+
+    // ---------- ATC Zones (Pro) ----------
+    // Pro shows each magazine as an ATC Zone in Keepout Zones, its slots
+    // padded by the Safety Margin: jogs stop at its edge and other moves go
+    // around it, while the tool change and $slotN still go in (see the
+    // `$keepout_off` prefix in commands.js). Magazine 1 is this plugin's id,
+    // the others add their number; a removed magazine's zone goes with it.
+    // Community has no keepout zones; an older Pro core without the endpoint
+    // answers 404 and is left alone. A failure never fails the save.
+    var KEEPOUT_SOURCE = 'com.ncsender.rapidchangeatc';
+    var keepoutUrl = function(index) {
+      return BASE_URL + '/api/keepout/managed/' + KEEPOUT_SOURCE + (index === 0 ? '' : '.' + (index + 1));
+    };
+
+    var magazineZone = function(mag, pad) {
+      var dir = mag.direction === 'Positive' ? 1 : -1;
+      var alongY = mag.orientation === 'Y';
+      var par1 = alongY ? mag.slot1.y : mag.slot1.x;
+      var perp = alongY ? mag.slot1.x : mag.slot1.y;
+      var parN = par1 + (mag.slots - 1) * mag.slotDistance * dir;
+      var parMin = Math.min(par1, parN) - pad, parMax = Math.max(par1, parN) + pad;
+      return alongY
+        ? { minX: perp - pad, maxX: perp + pad, minY: parMin, maxY: parMax }
+        : { minX: parMin, maxX: parMax, minY: perp - pad, maxY: perp + pad };
+    };
+
+    var syncKeepoutZones = async function(payload) {
+      try {
+        if (!(await isProCore())) return;
+        var limits = await getMachineLimits();
+        var list = payload.magazines || [];
+        for (var i = 0; i < MAX_MAGAZINES; i++) {
+          if (i >= list.length) {
+            await fetch(keepoutUrl(i), { method: 'DELETE' });
+            continue;
+          }
+          var z = magazineZone(list[i], payload.keepoutPadding);
+          if (limits) {
+            z.minX = Math.max(z.minX, limits.minX); z.maxX = Math.min(z.maxX, limits.maxX);
+            z.minY = Math.max(z.minY, limits.minY); z.maxY = Math.min(z.maxY, limits.maxY);
+          }
+          if (!(z.maxX > z.minX) || !(z.maxY > z.minY)) continue;
+          var res = await fetch(keepoutUrl(i), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: list.length > 1 ? 'ATC Zone ' + (i + 1) : 'ATC Zone',
+              minX: z.minX, minY: z.minY, maxX: z.maxX, maxY: z.maxY
+            })
+          });
+          if (res.status === 404) return;
+        }
+      } catch (err) {
+        console.warn('[RapidChangeATC] keepout zone sync failed:', err);
+      }
+    };
+
+    var isProCore = async function() {
+      try {
+        var res = await fetch(BASE_URL + '/api/app-info');
+        if (!res.ok) return false;
+        var info = await res.json();
+        return !!info && info.edition === 'pro';
+      } catch (err) {
+        return false;
+      }
+    };
+
+    // Machine travel from $130/$131 and the homing corner, so a zone never
+    // reaches past the bed. Null when unknown: the zone is left unclamped.
+    var getMachineLimits = async function() {
+      try {
+        var results = await Promise.all([fetch(BASE_URL + '/api/firmware'), fetch(BASE_URL + '/api/settings')]);
+        if (!results[0].ok || !results[1].ok) return null;
+        var firmware = await results[0].json();
+        var settings = await results[1].json();
+        var fs = (firmware && firmware.settings) || {};
+        var sx = parseFloat((fs['130'] && fs['130'].value) || '');
+        var sy = parseFloat((fs['131'] && fs['131'].value) || '');
+        if (!(sx > 0) || !(sy > 0)) return null;
+        var home = (settings && settings.homeLocation) || 'back-left';
+        var xMax = home === 'back-right' || home === 'front-right';
+        var yMax = home === 'back-left' || home === 'back-right';
+        return { minX: xMax ? -sx : 0, maxX: xMax ? 0 : sx, minY: yMax ? -sy : 0, maxY: yMax ? 0 : sy };
+      } catch (err) {
+        return null;
+      }
     };
 
     var closeDialog = function() {
@@ -3354,6 +3455,7 @@
         var labelMap = {
           'rc-label-z-retreat': 'Z-Retreat (' + u + ')',
           'rc-label-slot-distance': 'Slot Distance (' + u + ')',
+          'rc-label-keepout-padding': 'Safety Margin (' + u + ')',
           'rc-label-z-probe-start': 'Starting Z-Probe (' + u + ')',
           'rc-label-seek-distance': 'Seek Distance (' + u + ')',
           'rc-label-seek-feedrate': 'Seek Feedrate (' + f + ')'

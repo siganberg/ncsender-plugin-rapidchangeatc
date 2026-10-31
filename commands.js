@@ -327,6 +327,9 @@ const buildInitialConfig = (raw = {}) => {
     loadPlunges: Math.min(Math.max(toFiniteNumber(raw.loadPlunges, 3), 1), 10),
     unloadPlunges: Math.min(Math.max(toFiniteNumber(raw.unloadPlunges, 1), 1), 10),
     engageFeedrate: toFiniteNumber(raw.engageFeedrate, 3500),
+    // Pro: each magazine is published as an ATC Zone in Keepout Zones,
+    // padded by this much on every side (see config.html).
+    keepoutPadding: Math.max(0, toFiniteNumber(raw.keepoutPadding, 60)),
 
     seekDistance: toFiniteNumber(raw.seekDistance, 50),
     seekFeedrate: toFiniteNumber(raw.seekFeedrate, 500),
@@ -421,6 +424,20 @@ function getSensorCheckClose(oNumber) {
   return `o${oNumber} ENDIF`;
 }
 
+// === Keepout ===
+//
+// Pro shows each magazine as an ATC Zone: jogs stop at its edge and other
+// moves go around it. The tool change and $slotN have to go in, so their G53
+// moves carry the `$keepout_off` prefix, one line at a time, so an aborted
+// change can't leave the check off. It only lifts ATC zones; the user's own
+// zones are still enforced. Community has no keepout, so no prefix there.
+let _coreEdition = 'unknown';
+
+// The move back to where the change started is the operator's position,
+// not one this plugin can vouch for: it keeps its keepout check.
+const CORE_CHECKED_MARKER = '(ncs-checked)';
+const G53_PATTERN = /(^|[^A-Z])G0*53(?:[^0-9]|$)/i;
+
 function formatGCode(gcode) {
   const lines = gcode.split('\n')
     .map(line => line.trim())
@@ -444,7 +461,10 @@ function formatGCode(gcode) {
     }
 
     const indent = '  '.repeat(indentLevel);
-    formatted.push(indent + line);
+    const checked = line.includes(CORE_CHECKED_MARKER);
+    const emitted = checked ? line.replace(CORE_CHECKED_MARKER, '').trimEnd() : line;
+    const bypass = _coreEdition === 'pro' && !checked && G53_PATTERN.test(emitted);
+    formatted.push(indent + (bypass ? `$keepout_off ${emitted}` : emitted));
 
     if (isOCode && (
       upperLine.includes(' IF ') ||
@@ -834,7 +854,7 @@ function buildToolChangeProgram(settings, currentTool, toolNumber, toolOffsets =
     : '';
   const returnTo = options.returnTo;
   const returnSection = returnTo && isFinite(returnTo.x) && isFinite(returnTo.y)
-    ? `G53 G0 X${returnTo.x} Y${returnTo.y}`
+    ? `G53 G0 X${returnTo.x} Y${returnTo.y} ${CORE_CHECKED_MARKER}`
     : '';
 
   const atcStartDelaySection = settings.atcStartDelay > 0 ? `G4 P${settings.atcStartDelay}` : '';
@@ -1101,6 +1121,7 @@ function handleM6Command(commands, context, settings) {
 // === Main Entry Point ===
 
 function onBeforeCommand(commands, context, settings) {
+  _coreEdition = (context && typeof context.edition === 'string') ? context.edition : 'unknown';
   // Use core app's safe Z height setting, fallback to 0 (machine Z0)
   if (context && context.safeZHeight !== undefined) {
     settings.zSafe = context.safeZHeight;
