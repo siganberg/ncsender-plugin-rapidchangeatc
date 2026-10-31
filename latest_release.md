@@ -1,4 +1,4 @@
 ## What's Changed
 
-### 🐛 Bug Fixes
-- Tools are now looked up by their Tool ID only, never by their slot number, so tool changes always load the tool you asked for
+### ✨ New Features
+- Each tool magazine now shows up as its own ATC Zone in the Pro keepout, so the machine keeps clear of every magazine area while it moves
