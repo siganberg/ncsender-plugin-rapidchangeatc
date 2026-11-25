@@ -1,4 +1,4 @@
 ## What's Changed
 
 ### ✨ New Features
-- Each tool magazine now shows up as its own ATC Zone in the Pro keepout, so the machine keeps clear of every magazine area while it moves
+- Tool change prompts now show a clear heading followed by one line per step, so each action in a tool change is easier to read and follow in the new step list layout
