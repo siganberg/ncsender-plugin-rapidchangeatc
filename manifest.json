@@ -42,13 +42,17 @@
     },
     "MANUAL_UNLOAD_TOOL": {
       "title": "Manual Unload",
+      "heading": "Remove this tool from the spindle",
       "message": "Please remove {toolNumber}, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
-      "continueLabel": "Continue"
+      "continueLabel": "Continue",
+      "continueTask": "Remove {toolNumber}, then continue."
     },
     "MANUAL_LOAD_TOOL": {
       "title": "Manual Load",
+      "heading": "Load this tool into the spindle",
       "message": "Please install {toolNumber} securely, then click <em>\"Continue\"</em> to proceed or <em>\"Abort\"</em> to cancel.",
-      "continueLabel": "Continue"
+      "continueLabel": "Continue",
+      "continueTask": "Install {toolNumber} securely, then continue."
     }
   }
 }
