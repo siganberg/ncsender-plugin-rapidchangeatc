@@ -1120,6 +1120,63 @@ function handleM6Command(commands, context, settings) {
 
 // === Main Entry Point ===
 
+// === What follows from the settings ===
+//
+// ncSender calls onSettingsApplied whenever these settings come into effect:
+// at startup, after an install or update, on enable, after Save, and when the
+// controller connects. What is published from the settings is published here,
+// so an update takes effect without anyone opening the settings page and
+// pressing Save. (The page still does the same on Save, for an ncSender from
+// before this hook.) Safe to repeat.
+
+// One magazine's slots, padded by the Safety Margin (the same box the
+// settings page publishes).
+function magazineZone(mag, pad) {
+  const dir = mag.direction === 'Positive' ? 1 : -1;
+  const alongY = mag.orientation === 'Y';
+  const par1 = alongY ? mag.slot1.y : mag.slot1.x;
+  const perp = alongY ? mag.slot1.x : mag.slot1.y;
+  const parN = par1 + (mag.slots - 1) * mag.slotDistance * dir;
+  const parMin = Math.min(par1, parN) - pad;
+  const parMax = Math.max(par1, parN) + pad;
+  return alongY
+    ? { minX: perp - pad, maxX: perp + pad, minY: parMin, maxY: parMax }
+    : { minX: parMin, maxX: parMax, minY: perp - pad, maxY: perp + pad };
+}
+
+// Every magazine as an ATC Zone, cut off at the machine's travel. Null while
+// the travel isn't known: the page has always clipped the zones, so unclipped
+// ones would flip the saved zones at every start until the controller connects.
+function keepoutZonesToPublish(settings, limits) {
+  if (!limits) return null;
+  const magazines = settings.magazines || [];
+  const zones = [];
+  magazines.forEach((mag, i) => {
+    const box = magazineZone(mag, settings.keepoutPadding);
+    const zone = {
+      name: magazines.length > 1 ? `ATC Zone ${i + 1}` : 'ATC Zone',
+      minX: Math.max(box.minX, limits.minX),
+      minY: Math.max(box.minY, limits.minY),
+      maxX: Math.min(box.maxX, limits.maxX),
+      maxY: Math.min(box.maxY, limits.maxY),
+    };
+    const real = [zone.minX, zone.minY, zone.maxX, zone.maxY].every(Number.isFinite)
+      && zone.maxX > zone.minX && zone.maxY > zone.minY;
+    if (real) zones.push(zone);
+  });
+  return zones;
+}
+
+function onSettingsApplied(settings) {
+  const host = typeof pluginContext !== 'undefined' ? pluginContext : null;
+  // Pro only: Community has no keepout, so no setKeepoutZones.
+  if (!host || !settings || typeof host.setKeepoutZones !== 'function') return;
+  let limits = null;
+  try { limits = typeof host.getMachineLimits === 'function' ? host.getMachineLimits() : null; } catch (_) { limits = null; }
+  const zones = keepoutZonesToPublish(settings, limits);
+  if (zones) host.setKeepoutZones(zones);
+}
+
 function onBeforeCommand(commands, context, settings) {
   _coreEdition = (context && typeof context.edition === 'string') ? context.edition : 'unknown';
   // Use core app's safe Z height setting, fallback to 0 (machine Z0)
