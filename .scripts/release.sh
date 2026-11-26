@@ -2,6 +2,20 @@
 
 set -e
 
+# Release notes can be handed in instead of generated: set
+# NC_RELEASE_NOTES_FILE to a markdown file (starting with "## What's Changed")
+# and it is used exactly as written, images included. Without it, the `claude`
+# CLI writes the notes from the commit messages as before.
+# Screenshots in release notes are always captured at 1080p (1920x1080).
+if [ -n "${NC_RELEASE_NOTES_FILE:-}" ]; then
+    if [ ! -s "$NC_RELEASE_NOTES_FILE" ]; then
+        echo "NC_RELEASE_NOTES_FILE is set but '$NC_RELEASE_NOTES_FILE' is missing or empty"
+        exit 1
+    fi
+    echo "Using release notes from $NC_RELEASE_NOTES_FILE"
+    claude() { cat "$NC_RELEASE_NOTES_FILE"; }
+fi
+
 # Get the latest tag from all branches
 # Stable releases only: skip pre-release tags (v0.1.46-beta.1), whose suffix
 # would break the patch bump below.
